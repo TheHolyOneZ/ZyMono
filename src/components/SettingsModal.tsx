@@ -1,0 +1,421 @@
+import { useEffect, useState } from "react";
+import { open } from "@tauri-apps/plugin-dialog";
+import { invoke } from "@tauri-apps/api/core";
+import {
+  X,
+  FolderOpen,
+  RotateCcw,
+  Check,
+  Github,
+  Boxes,
+  ExternalLink,
+  SlidersHorizontal,
+  Syringe,
+  Palette,
+  Info,
+  RefreshCw,
+  Download,
+  Loader2,
+  Sparkles,
+  Home,
+} from "lucide-react";
+import { ACCENTS, DEFAULT_SETTINGS, lighten, type Settings } from "../settings";
+import type { InjectMethod } from "../types";
+import InfoTip from "./InfoTip";
+
+const openUrl = (u: string) => invoke("reveal_path", { path: u }).catch(() => {});
+
+interface Props {
+  settings: Settings;
+  onChange: (patch: Partial<Settings>) => void;
+  onClose: () => void;
+  appVersion: string;
+  updateVersion: string | null;
+  checkingUpdate: boolean;
+  onCheckUpdates: () => void;
+  onInstallUpdate: () => void;
+  updateBusy: boolean;
+}
+
+type Cat = "general" | "injection" | "appearance" | "about";
+const CATS: { key: Cat; label: string; icon: JSX.Element }[] = [
+  { key: "general", label: "General", icon: <SlidersHorizontal size={15} /> },
+  { key: "injection", label: "Injection", icon: <Syringe size={15} /> },
+  { key: "appearance", label: "Appearance", icon: <Palette size={15} /> },
+  { key: "about", label: "About", icon: <Info size={15} /> },
+];
+
+const REFRESH_OPTIONS = [
+  { label: "1s", ms: 1000 },
+  { label: "2s", ms: 2000 },
+  { label: "5s", ms: 5000 },
+  { label: "Off", ms: 0 },
+];
+const ROUTES: { key: InjectMethod; label: string }[] = [
+  { key: "auto", label: "Auto" },
+  { key: "direct", label: "Direct" },
+  { key: "pipe", label: "Pipe" },
+];
+const AUTOFILL: { key: Settings["profileAutofill"]; label: string }[] = [
+  { key: "ask", label: "Ask" },
+  { key: "auto", label: "Auto" },
+  { key: "off", label: "Off" },
+];
+
+export default function SettingsModal({
+  settings,
+  onChange,
+  onClose,
+  appVersion,
+  updateVersion,
+  checkingUpdate,
+  onCheckUpdates,
+  onInstallUpdate,
+  updateBusy,
+}: Props) {
+  const [cat, setCat] = useState<Cat>("general");
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const pickFolder = async () => {
+    const dir = await open({ directory: true, multiple: false });
+    if (typeof dir === "string") onChange({ modFolder: dir });
+  };
+
+  const Toggle = ({ on, set }: { on: boolean; set: (v: boolean) => void }) => (
+    <button className={`toggle${on ? " on" : ""}`} onClick={() => set(!on)} role="switch" aria-checked={on}>
+      <span className="toggle-knob" />
+    </button>
+  );
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal settings2" onClick={(e) => e.stopPropagation()}>
+        <div className="settings-nav">
+          <div className="settings-nav-title">Settings</div>
+          {CATS.map((c) => (
+            <button
+              key={c.key}
+              className={`settings-nav-item${cat === c.key ? " active" : ""}`}
+              onClick={() => setCat(c.key)}
+            >
+              {c.icon}
+              {c.label}
+            </button>
+          ))}
+          <div className="settings-nav-foot">
+            <button className="text-btn" onClick={() => onChange({ ...DEFAULT_SETTINGS })}>
+              <RotateCcw size={13} /> Reset defaults
+            </button>
+          </div>
+        </div>
+
+        <div className="settings-main">
+          <div className="settings-head2">
+            <span>{CATS.find((c) => c.key === cat)?.label}</span>
+            <button className="icon-btn" onClick={onClose} title="Close (Esc)">
+              <X size={15} />
+            </button>
+          </div>
+
+          <div className="settings-pane">
+            {cat === "general" && (
+              <>
+                <div className="setting">
+                  <div className="setting-label">
+                    Process refresh
+                    <InfoTip text="How often the sidebar re-scans for running Unity/Mono games. 'Off' stops the auto-scan." />
+                    <span className="setting-hint">how often the target list updates</span>
+                  </div>
+                  <div className="seg-choice">
+                    {REFRESH_OPTIONS.map((o) => (
+                      <button
+                        key={o.label}
+                        className={settings.refreshMs === o.ms ? "active" : ""}
+                        onClick={() => onChange({ refreshMs: o.ms })}
+                      >
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="setting">
+                  <div className="setting-label">
+                    DLL picker start folder
+                    <InfoTip text="A shortcut: the folder the 'Choose .dll' browser opens in. You still pick the file yourself." />
+                    <span className="setting-hint">where the file browser opens</span>
+                  </div>
+                  <div className="setting-row">
+                    <button className="secondary-btn" onClick={pickFolder}>
+                      <FolderOpen size={14} /> Choose…
+                    </button>
+                    <span className="setting-path" title={settings.modFolder ?? ""}>
+                      {settings.modFolder ?? "System default"}
+                    </span>
+                    {settings.modFolder && (
+                      <button className="icon-btn" title="Clear" onClick={() => onChange({ modFolder: null })}>
+                        <X size={13} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="setting">
+                  <div className="setting-label">
+                    Apply a saved profile on select
+                    <InfoTip text="When you click a game that has a matching saved profile: Ask (a prompt), Auto (apply the top match silently), or Off." />
+                    <span className="setting-hint">when a game has a saved profile</span>
+                  </div>
+                  <div className="seg-choice">
+                    {AUTOFILL.map((o) => (
+                      <button
+                        key={o.key}
+                        className={settings.profileAutofill === o.key ? "active" : ""}
+                        onClick={() => onChange({ profileAutofill: o.key })}
+                      >
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="setting setting-inline">
+                  <div className="setting-label">
+                    Auto-inject on launch
+                    <InfoTip text="When ON, profiles flagged for auto-inject fire automatically as soon as their game launches (once per launch). Use the ⚡ toggle on a profile card to flag it." />
+                    <span className="setting-hint">fire flagged profiles when their game starts</span>
+                  </div>
+                  <Toggle on={settings.autoInject} set={(v) => onChange({ autoInject: v })} />
+                </div>
+
+                <div className={`setting${settings.autoInject ? "" : " setting-disabled"}`}>
+                  <div className="setting-label">
+                    Auto-inject wait time
+                    <InfoTip text="How long ZyMono waits after the game appears before auto-injecting, giving the runtime (and BepInEx, if used) time to finish loading. Default 5s; range 0.01–30s." />
+                    <span className="setting-hint">let the game load before injecting</span>
+                  </div>
+                  <div className="setting-row">
+                    <input
+                      type="number"
+                      min={0.01}
+                      max={30}
+                      step={0.5}
+                      disabled={!settings.autoInject}
+                      value={+(settings.autoInjectDelayMs / 1000).toFixed(2)}
+                      onChange={(e) => {
+                        const s = Math.max(0.01, Math.min(30, Number(e.target.value) || 5));
+                        onChange({ autoInjectDelayMs: Math.round(s * 1000) });
+                      }}
+                    />
+                    <span className="setting-unit">seconds</span>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {cat === "injection" && (
+              <>
+                <div className="setting">
+                  <div className="setting-label">
+                    Default route
+                    <InfoTip text="The route pre-selected when you pick a target. Auto decides direct-vs-pipe from what's live in the game." />
+                    <span className="setting-hint">Auto is recommended</span>
+                  </div>
+                  <div className="seg-choice">
+                    {ROUTES.map((o) => (
+                      <button
+                        key={o.key}
+                        className={settings.defaultRoute === o.key ? "active" : ""}
+                        onClick={() => onChange({ defaultRoute: o.key })}
+                      >
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="setting">
+                  <div className="setting-label">
+                    Injection timeout
+                    <InfoTip text="How long to wait for your mod's entry method before giving up." />
+                    <span className="setting-hint">max wait for the entry point</span>
+                  </div>
+                  <div className="setting-row">
+                    <input
+                      type="number"
+                      min={5}
+                      max={300}
+                      value={settings.timeoutSecs}
+                      onChange={(e) =>
+                        onChange({ timeoutSecs: Math.max(5, Math.min(300, Number(e.target.value) || 40)) })
+                      }
+                    />
+                    <span className="setting-unit">seconds</span>
+                  </div>
+                </div>
+
+                <div className="setting">
+                  <div className="setting-label">
+                    Injection delay
+                    <InfoTip text="Wait this long before injecting. Useful for games that need a moment to finish initializing Mono." />
+                    <span className="setting-hint">pause before injecting</span>
+                  </div>
+                  <div className="setting-row">
+                    <input
+                      type="number"
+                      min={0}
+                      max={5000}
+                      step={100}
+                      value={settings.injectDelayMs}
+                      onChange={(e) =>
+                        onChange({ injectDelayMs: Math.max(0, Math.min(5000, Number(e.target.value) || 0)) })
+                      }
+                    />
+                    <span className="setting-unit">ms</span>
+                  </div>
+                </div>
+
+                <div className="setting setting-inline">
+                  <div className="setting-label">
+                    Clear console on each inject
+                    <InfoTip text="Wipe the console at the start of every injection for a clean log." />
+                    <span className="setting-hint">start every run with a clean log</span>
+                  </div>
+                  <Toggle on={settings.clearOnInject} set={(v) => onChange({ clearOnInject: v })} />
+                </div>
+              </>
+            )}
+
+            {cat === "appearance" && (
+              <>
+                <div className="setting">
+                  <div className="setting-label">
+                    Accent color
+                    <InfoTip text="Recolors the whole app — buttons, highlights, glows. Applies instantly." />
+                  </div>
+                  <div className="swatches">
+                    {ACCENTS.map((a) => {
+                      const active = !settings.customAccent && settings.accent[0] === a.colors[0];
+                      return (
+                        <button
+                          key={a.name}
+                          className={`swatch${active ? " active" : ""}`}
+                          title={a.name}
+                          style={{ background: `linear-gradient(135deg, ${a.colors[0]}, ${a.colors[1]})` }}
+                          onClick={() => onChange({ accent: a.colors, customAccent: false })}
+                        >
+                          {active && <Check size={14} />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="setting">
+                  <div className="setting-label">
+                    Custom accent
+                    <InfoTip text="Pick any color — ZyMono derives the matching gradient automatically." />
+                    <span className="setting-hint">override the presets with your own color</span>
+                  </div>
+                  <div className="setting-row">
+                    <label className={`custom-accent${settings.customAccent ? " active" : ""}`}>
+                      <span
+                        className="ca-swatch"
+                        style={{
+                          background: `linear-gradient(135deg, ${settings.accent[0]}, ${settings.accent[1]})`,
+                        }}
+                      />
+                      <input
+                        type="color"
+                        value={settings.accent[0]}
+                        onChange={(e) =>
+                          onChange({ accent: [e.target.value, lighten(e.target.value)], customAccent: true })
+                        }
+                      />
+                      <span className="ca-value">{settings.accent[0].toUpperCase()}</span>
+                    </label>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {cat === "about" && (
+              <div className="setting about">
+                <div className="about-head">
+                  <span className="about-name">ZyMono</span>
+                  <span className="beta-pill">ALPHA</span>
+                  {appVersion && <span className="about-version">v{appVersion}</span>}
+                </div>
+
+                <div className="about-update">
+                  {updateVersion ? (
+                    <div className="au-row">
+                      <span className="au-avail">
+                        <Sparkles size={14} /> Version <strong>v{updateVersion}</strong> available
+                      </span>
+                      <button className="secondary-btn" onClick={onInstallUpdate} disabled={updateBusy}>
+                        {updateBusy ? <Loader2 size={14} className="spin" /> : <Download size={14} />}
+                        Download &amp; install
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="au-row">
+                      <span className="au-uptodate">
+                        <Check size={14} /> You're on the latest version
+                      </span>
+                      <button className="secondary-btn" onClick={onCheckUpdates} disabled={checkingUpdate}>
+                        {checkingUpdate ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
+                        Check for updates
+                      </button>
+                    </div>
+                  )}
+                  <span className="au-hint">
+                    Updates are downloaded from zlogic.eu and cryptographically verified before install.
+                  </span>
+                </div>
+
+                <p className="about-body">
+                  Windows-native Mono/Unity injector. Direct in-memory injection plus smart routing
+                  through an in-game receiver plugin when BepInEx is actually live — decided from the
+                  running process, not folders on disk.
+                </p>
+                <dl className="about-tested">
+                  <div>
+                    <dt>Modes</dt>
+                    <dd>Direct injection · Pipe injection (BepInEx receiver)</dd>
+                  </div>
+                  <div>
+                    <dt>Targets</dt>
+                    <dd>Windows · Mono/Unity · x86 &amp; x64</dd>
+                  </div>
+                </dl>
+                <div className="about-made">
+                  Made by <strong>TheHolyOneZ</strong>
+                </div>
+                <div className="about-links">
+                  <button className="about-link" onClick={() => openUrl("https://zlogic.eu/zymono/")}>
+                    <Home size={13} /> ZyMono home
+                  </button>
+                  <button className="about-link" onClick={() => openUrl("https://github.com/TheHolyOneZ/ZyMono")}>
+                    <Github size={13} /> Source on GitHub
+                  </button>
+                  <button className="about-link" onClick={() => openUrl("https://zsync.eu/")}>
+                    <Boxes size={13} /> More projects
+                  </button>
+                  <button className="about-link" onClick={() => openUrl("https://zlogic.eu/")}>
+                    <ExternalLink size={13} /> Mods &amp; mod menus
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
