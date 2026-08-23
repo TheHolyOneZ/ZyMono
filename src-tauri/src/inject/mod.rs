@@ -163,10 +163,23 @@ fn run_sequence(
 
     let image2 = eng.execute(ex.get("mono_assembly_get_image")?, &[assembly_handle])?;
 
+    invoke_in_image(eng, ex, image2, namespace, class_name, method, args, log)
+}
+
+fn invoke_in_image(
+    eng: &mut Engine,
+    ex: &Exports,
+    image: u64,
+    namespace: &str,
+    class_name: &str,
+    method: &str,
+    args: &[String],
+    log: &dyn Fn(&str),
+) -> Result<(), String> {
     log("→ resolving the entry point");
     let ns_ptr = alloc_cstr(eng.mem, namespace)?;
     let class_ptr = alloc_cstr(eng.mem, class_name)?;
-    let klass = eng.execute(ex.get("mono_class_from_name")?, &[image2, ns_ptr, class_ptr])?;
+    let klass = eng.execute(ex.get("mono_class_from_name")?, &[image, ns_ptr, class_ptr])?;
     if klass == 0 {
         let full = if namespace.is_empty() {
             class_name.to_string()
@@ -214,6 +227,97 @@ fn run_sequence(
         return Err(read_exception(eng, ex, exc));
     }
     Ok(())
+}
+
+fn loaded_image(eng: &mut Engine, ex: &Exports, simple_name: &str) -> Option<u64> {
+    let name_new = ex.get("mono_assembly_name_new").ok()?;
+    let loaded = ex.get("mono_assembly_loaded").ok()?;
+    let get_image = ex.get("mono_assembly_get_image").ok()?;
+    let name_ptr = alloc_cstr(eng.mem, simple_name).ok()?;
+    let aname = eng.execute(name_new, &[name_ptr]).ok()?;
+    if aname == 0 {
+        return None;
+    }
+    let assembly = eng.execute(loaded, &[aname]).ok()?;
+    if assembly == 0 {
+        return None;
+    }
+    match eng.execute(get_image, &[assembly]) {
+        Ok(0) | Err(_) => None,
+        Ok(image) => Some(image),
+    }
+}
+
+fn invoke_sequence(
+    eng: &mut Engine,
+    ex: &Exports,
+    simple_name: &str,
+    namespace: &str,
+    class_name: &str,
+    method: &str,
+    args: &[String],
+    log: &dyn Fn(&str),
+) -> Result<(), String> {
+    log("→ getting root domain");
+    eng.root_domain = eng.execute(ex.get("mono_get_root_domain")?, &[])?;
+    if eng.root_domain == 0 {
+        return Err("mono_get_root_domain returned null".into());
+    }
+
+    eng.attach = true;
+    eng.thread_attach_fn = ex.get("mono_thread_attach")?;
+
+    log(&format!("→ looking for a loaded assembly named {simple_name}"));
+    let image = loaded_image(eng, ex, simple_name).ok_or_else(|| {
+        format!("assembly \"{simple_name}\" isn't loaded in this process — inject the mod first, and check its assembly name matches the DLL file name")
+    })?;
+
+    invoke_in_image(eng, ex, image, namespace, class_name, method, args, log)
+}
+
+pub fn invoke_only(
+    pid: u32,
+    arch_x86: bool,
+    dll_path: &str,
+    namespace: &str,
+    class_name: &str,
+    method: &str,
+    args: &[String],
+    timeout_ms: u32,
+    log: &dyn Fn(&str),
+) -> Result<(), String> {
+    let is64 = !arch_x86;
+    let simple_name = std::path::Path::new(dll_path)
+        .file_stem()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    if simple_name.is_empty() {
+        return Err("couldn't work out the assembly name from the DLL path".into());
+    }
+
+    log(&format!("→ opening process {pid}"));
+    let handle: HANDLE = unsafe { th::OpenProcess(th::PROCESS_ALL_ACCESS, false, pid) }
+        .map_err(|e| format!("OpenProcess({pid}): {e} — try launching ZyMono as administrator"))?;
+
+    let result = (|| -> Result<(), String> {
+        let mut mem = Memory::new(handle);
+        log("→ locating the mono module and resolving exports");
+        let (_base, exports) = exports::resolve(&mem, is64)?;
+        let mut eng = Engine {
+            mem: &mut mem,
+            is64,
+            attach: false,
+            thread_attach_fn: 0,
+            root_domain: 0,
+            timeout_ms: timeout_ms.max(1000),
+        };
+        invoke_sequence(&mut eng, &exports, &simple_name, namespace, class_name, method, args, log)
+    })();
+
+    unsafe {
+        let _ = CloseHandle(handle);
+    }
+    result
 }
 
 pub fn direct(

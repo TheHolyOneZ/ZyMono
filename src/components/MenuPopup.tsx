@@ -1,10 +1,13 @@
 import { useEffect, type MouseEvent, type ReactNode } from "react";
+import { X } from "lucide-react";
 import { createPortal } from "react-dom";
 
 export interface PopItem {
   label: string;
+  sub?: string;
   icon?: ReactNode;
   onClick: () => void;
+  onRemove?: () => void;
   danger?: boolean;
   sep?: boolean;
 }
@@ -53,10 +56,28 @@ export default function MenuPopup({ x, y, items, onClose }: Props) {
       {items.map((it, i) => (
         <div key={i}>
           {it.sep && <div className="ctxmenu-sep" />}
-          <button className={`ctxmenu-item${it.danger ? " danger" : ""}`} onClick={act(it.onClick)}>
-            {it.icon}
-            {it.label}
-          </button>
+          <div className="ctxmenu-line">
+            <button className={`ctxmenu-item${it.danger ? " danger" : ""}`} onClick={act(it.onClick)}>
+              {it.icon}
+              <span className="ctxmenu-text">
+                <span className="ctxmenu-label">{it.label}</span>
+                {it.sub && <span className="ctxmenu-sub">{it.sub}</span>}
+              </span>
+            </button>
+            {it.onRemove && (
+              <button
+                className="ctxmenu-forget"
+                title="Remove from list"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  it.onRemove!();
+                  onClose();
+                }}
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
         </div>
       ))}
     </div>,

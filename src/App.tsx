@@ -4,7 +4,20 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { save, open } from "@tauri-apps/plugin-dialog";
 import { getVersion } from "@tauri-apps/api/app";
-import { Copy, CheckCircle2, XCircle, X, Syringe, Ban, ChevronDown, BookMarked, Sparkles, Download } from "lucide-react";
+import {
+  Copy,
+  CheckCircle2,
+  XCircle,
+  X,
+  Syringe,
+  Ban,
+  ChevronDown,
+  BookMarked,
+  Sparkles,
+  Download,
+  Eraser,
+  FileCode2,
+} from "lucide-react";
 import type { EntryPoint, InjectMethod, MonoProcess, Profile, RunState } from "./types";
 import { checkForUpdate, installUpdate, type UpdateInfo } from "./updater";
 import TitleBar from "./components/TitleBar";
@@ -20,7 +33,7 @@ import SettingsModal from "./components/SettingsModal";
 import SaveProfilePopover from "./components/SaveProfilePopover";
 import MenuPopup from "./components/MenuPopup";
 import ResizeHandles from "./components/ResizeHandles";
-import { loadSettings, saveSettings, applyAccent, type Settings } from "./settings";
+import { loadSettings, saveSettings, applyAccent, applyContrast, type Settings } from "./settings";
 import {
   parseProfiles,
   migrateFromLocalStorage,
@@ -33,6 +46,8 @@ import {
   newId,
 } from "./profiles";
 import { basename } from "./path";
+import { loadRecentDlls, pushRecentDll } from "./recent";
+import { splitEntryPoint } from "./entrypoint";
 
 interface InjectCfg {
   dllPath: string | null;
@@ -41,9 +56,12 @@ interface InjectCfg {
   method: string;
   args: string[];
   methodMode: InjectMethod;
+  invokeOnly?: boolean;
 }
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+
+const CONSOLE_H_KEY = "zymono.consoleH3";
 
 const numPref = (k: string, d: number) => {
   const v = Number(localStorage.getItem(k));
@@ -56,6 +74,7 @@ interface Preset {
   className: string;
   method: string;
   args?: string[];
+  unload?: string;
 }
 const loadPresets = (): Record<string, Preset> => {
   try {
@@ -77,14 +96,16 @@ export default function App() {
   const [namespace, setNamespace] = useState("");
   const [className, setClassName] = useState("");
   const [method, setMethod] = useState("");
+  const [unloadEntry, setUnloadEntry] = useState("");
   const [args, setArgs] = useState<string[]>([]);
+  const [recentDlls, setRecentDlls] = useState<string[]>(loadRecentDlls);
   const [injectMethod, setInjectMethod] = useState<InjectMethod>(() => loadSettings().defaultRoute);
   const [dllEntries, setDllEntries] = useState<EntryPoint[] | null>(null);
   const [dllRefs, setDllRefs] = useState<string[]>([]);
   const [log, setLog] = useState<string[]>([]);
   const [runState, setRunState] = useState<RunState>("idle");
   const [elapsed, setElapsed] = useState(0);
-  const [dragActive, setDragActive] = useState(false);
+  const [drag, setDrag] = useState<{ name: string; count: number; ok: boolean } | null>(null);
   const [browserOpen, setBrowserOpen] = useState(false);
   const [toast, setToast] = useState<{ kind: "ok" | "err" | "info"; msg: string } | null>(null);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; proc: MonoProcess } | null>(null);
@@ -109,6 +130,14 @@ export default function App() {
   const [savePop, setSavePop] = useState<{ x: number; y: number } | null>(null);
   const [saveMenu, setSaveMenu] = useState<{ x: number; y: number } | null>(null);
   const [profilePrompt, setProfilePrompt] = useState<Profile | null>(null);
+
+  const formRef = useRef({ dllPath, namespace, className, method });
+  formRef.current = { dllPath, namespace, className, method };
+
+  const pickDll = useCallback((path: string) => {
+    setDllPath(path);
+    setRecentDlls(pushRecentDll(path));
+  }, []);
 
   const profilesRef = useRef<Profile[]>(profiles);
   profilesRef.current = profiles;
@@ -175,6 +204,7 @@ export default function App() {
   };
 
   useEffect(() => applyAccent(settings.accent), [settings.accent]);
+  useEffect(() => applyContrast(settings.highContrast), [settings.highContrast]);
 
   const updateSettings = (patch: Partial<Settings>) => {
     setSettings((prev) => {
@@ -231,9 +261,28 @@ export default function App() {
   }, [toast]);
 
   const [sidebarW, setSidebarW] = useState(() => numPref("zymono.sidebarW", 290));
-  const [consoleH, setConsoleH] = useState(() => numPref("zymono.consoleH2", 185));
   useEffect(() => localStorage.setItem("zymono.sidebarW", String(sidebarW)), [sidebarW]);
-  useEffect(() => localStorage.setItem("zymono.consoleH2", String(consoleH)), [consoleH]);
+
+  const autoConsoleH = () => clamp(Math.round(window.innerHeight * 0.27), 160, 460);
+  const consoleUser = useRef(localStorage.getItem(CONSOLE_H_KEY) !== null);
+  const [consoleH, setConsoleH] = useState(() =>
+    consoleUser.current ? numPref(CONSOLE_H_KEY, autoConsoleH()) : autoConsoleH()
+  );
+  const consoleMax = () => Math.max(240, window.innerHeight - 300);
+  const applyConsoleH = (v: number) => {
+    const next = clamp(v, 120, consoleMax());
+    consoleUser.current = true;
+    localStorage.setItem(CONSOLE_H_KEY, String(next));
+    setConsoleH(next);
+  };
+  useEffect(() => {
+    const onResize = () => {
+      if (consoleUser.current) setConsoleH((h) => clamp(h, 120, consoleMax()));
+      else setConsoleH(autoConsoleH());
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   useEffect(() => {
     hintArmed.current = true;
@@ -287,31 +336,59 @@ export default function App() {
   }, [dllPath]);
 
   const usesHarmony = dllRefs.some((r) => /harmony/i.test(r));
+  const entryMatch = (() => {
+    if (!dllEntries || !className.trim() || !method.trim()) return null;
+    return (
+      dllEntries.find(
+        (e) =>
+          e.class === className.trim() &&
+          e.method === method.trim() &&
+          (namespace.trim() === "" || e.namespace === namespace.trim())
+      ) ?? null
+    );
+  })();
+  const expectedArgs = entryMatch?.param_count ?? null;
   const entryStatus = (() => {
     if (!dllEntries || !className.trim() || !method.trim()) return null;
-    const match = dllEntries.find(
-      (e) =>
-        e.class === className.trim() &&
-        e.method === method.trim() &&
-        (namespace.trim() === "" || e.namespace === namespace.trim())
-    );
-    if (!match) return { kind: "err" as const, msg: "Not found in this DLL — check Browse methods" };
-    if (!match.is_static || !match.returns_void)
+    if (!entryMatch) return { kind: "err" as const, msg: "Not found in this DLL — check Browse methods" };
+    if (!entryMatch.is_static || !entryMatch.returns_void)
       return { kind: "warn" as const, msg: "Found, but not static void — may fail" };
     return { kind: "ok" as const, msg: "Entry point found" };
   })();
 
   useEffect(() => {
+    const dllsIn = (paths: string[]) => paths.filter((p) => p.toLowerCase().endsWith(".dll"));
+
     const un = getCurrentWebview().onDragDropEvent((event) => {
-      if (event.payload.type === "over" || event.payload.type === "enter") {
-        setDragActive(true);
+      if (event.payload.type === "enter") {
+        const paths = event.payload.paths ?? [];
+        const dlls = dllsIn(paths);
+        setDrag({
+          name: basename(dlls[0] ?? paths[0] ?? ""),
+          count: dlls.length,
+          ok: dlls.length > 0,
+        });
+      } else if (event.payload.type === "over") {
+        setDrag((d) => d ?? { name: "", count: 0, ok: true });
       } else if (event.payload.type === "leave") {
-        setDragActive(false);
+        setDrag(null);
       } else if (event.payload.type === "drop") {
-        setDragActive(false);
-        const dll = event.payload.paths.find((p) => p.toLowerCase().endsWith(".dll"));
-        if (dll) setDllPath(dll);
-        else setToast({ kind: "err", msg: "That's not a .dll — drop a .NET mod assembly (.dll)." });
+        setDrag(null);
+        const dlls = dllsIn(event.payload.paths);
+        if (dlls.length === 0) {
+          setToast({ kind: "err", msg: "That's not a .dll — drop a .NET mod assembly (.dll)." });
+          return;
+        }
+        pickDll(dlls[0]);
+        setToast({
+          kind: "ok",
+          msg:
+            dlls.length > 1
+              ? `Loaded ${basename(dlls[0])} — ${dlls.length - 1} other .dll${
+                  dlls.length > 2 ? "s" : ""
+                } ignored`
+              : `Loaded ${basename(dlls[0])}`,
+        });
       }
     });
     return () => {
@@ -349,20 +426,23 @@ export default function App() {
       return;
     }
 
+    const f = formRef.current;
+    const touched = !!(f.dllPath || f.namespace.trim() || f.className.trim() || f.method.trim());
+
     const exe = proc.exe_path ? basename(proc.exe_path).toLowerCase() : null;
     const matches = exe
       ? sortProfiles(profilesRef.current.filter((p) => (p.gameExe ?? "").toLowerCase() === exe))
       : [];
     const mode = settingsRef.current.profileAutofill;
-    if (matches.length && mode === "auto") {
+    if (matches.length && mode === "auto" && !touched) {
       applyProfile(matches[0]);
       return;
     }
-    if (matches.length && mode === "ask") {
+    if (matches.length && (mode === "ask" || touched)) {
       setProfilePrompt(matches[0]);
     }
 
-    if (proc.exe_path) {
+    if (!touched && proc.exe_path) {
       const preset = loadPresets()[proc.exe_path];
       if (preset) {
         setDllPath(preset.dll);
@@ -370,6 +450,7 @@ export default function App() {
         setClassName(preset.className);
         setMethod(preset.method);
         setArgs(preset.args ?? []);
+        setUnloadEntry(preset.unload ?? "");
       }
     }
   }, []);
@@ -452,6 +533,8 @@ export default function App() {
   const busy = runState === "running";
   const canInject =
     !busy && !!dllPath && !!className.trim() && !!method.trim() && !!selected && selected.injectable;
+  const canEject =
+    !busy && !!dllPath && !!unloadEntry.trim() && !!selected && selected.injectable;
 
   const injectHint = (() => {
     if (canInject || busy) return null;
@@ -464,13 +547,16 @@ export default function App() {
   })();
 
   const runInjection = async (target: MonoProcess, cfg: InjectCfg) => {
-    savePreset(target.exe_path ?? "", {
-      dll: cfg.dllPath,
-      namespace: cfg.namespace,
-      className: cfg.className,
-      method: cfg.method,
-      args: cfg.args,
-    });
+    if (!cfg.invokeOnly) {
+      savePreset(target.exe_path ?? "", {
+        dll: cfg.dllPath,
+        namespace: cfg.namespace,
+        className: cfg.className,
+        method: cfg.method,
+        args: cfg.args,
+        unload: unloadEntry,
+      });
+    }
     if (settings.clearOnInject) setLog([]);
     setRunState("running");
     startedAt.current = Date.now();
@@ -486,11 +572,15 @@ export default function App() {
           args: cfg.args,
           method_mode: cfg.methodMode,
           timeout_secs: settings.timeoutSecs,
-          delay_ms: settings.injectDelayMs,
+          delay_ms: cfg.invokeOnly ? 0 : settings.injectDelayMs,
+          invoke_only: !!cfg.invokeOnly,
         },
       });
       setRunState("ok");
-      setToast({ kind: "ok", msg: "Injection succeeded" });
+      setToast({
+        kind: "ok",
+        msg: cfg.invokeOnly ? "Unload entry point called" : "Injection succeeded",
+      });
     } catch (e) {
       append(`✗ ${e}`);
       setRunState("err");
@@ -506,11 +596,30 @@ export default function App() {
     runInjection(selected, { dllPath, namespace, className, method, args, methodMode: injectMethod });
   };
 
+  const onEject = () => {
+    if (!selected) return;
+    const parts = splitEntryPoint(unloadEntry);
+    if (!parts) {
+      setToast({ kind: "err", msg: "Unload entry point should look like MyMod.Loader.Unload" });
+      return;
+    }
+    runInjection(selected, {
+      dllPath,
+      namespace: parts.namespace,
+      className: parts.className,
+      method: parts.method,
+      args: [],
+      methodMode: injectMethod,
+      invokeOnly: true,
+    });
+  };
+
   const applyProfile = (p: Profile) => {
     setDllPath(p.dllPath);
     setNamespace(p.namespace);
     setClassName(p.className);
     setMethod(p.method);
+    setUnloadEntry(p.unload ?? "");
     setArgs(p.args);
     setInjectMethod(p.methodMode);
     setActiveProfileId(p.id);
@@ -548,6 +657,7 @@ export default function App() {
     namespace,
     className,
     method,
+    unload: unloadEntry,
     args,
     methodMode: injectMethod,
     gameExe: selected?.exe_path ? basename(selected.exe_path) : null,
@@ -638,6 +748,7 @@ export default function App() {
       activeProfile.namespace !== namespace ||
       activeProfile.className !== className ||
       activeProfile.method !== method ||
+      (activeProfile.unload ?? "") !== unloadEntry ||
       activeProfile.methodMode !== injectMethod ||
       JSON.stringify(activeProfile.args) !== JSON.stringify(args));
 
@@ -701,6 +812,27 @@ export default function App() {
 
   const kb = useRef({ inject: onInject, cancel: onCancel, clear: clearConsole, canInject, busy });
   kb.current = { inject: onInject, cancel: onCancel, clear: clearConsole, canInject, busy };
+
+  useEffect(() => {
+    invoke("set_inject_hotkey", { accel: settings.injectHotkey || null }).catch((e) =>
+      setToast({ kind: "err", msg: String(e) })
+    );
+  }, [settings.injectHotkey]);
+
+  useEffect(() => {
+    const un = listen("zymono://hotkey-inject", () => {
+      if (kb.current.busy) return;
+      if (!kb.current.canInject) {
+        setToast({ kind: "err", msg: "Hotkey: nothing to inject yet — pick a target and a DLL first" });
+        return;
+      }
+      setToast({ kind: "info", msg: "Hotkey: injecting…" });
+      kb.current.inject();
+    });
+    return () => {
+      un.then((f) => f());
+    };
+  }, []);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const meta = e.ctrlKey || e.metaKey;
@@ -729,9 +861,27 @@ export default function App() {
           <span>{toast.msg}</span>
         </div>
       )}
-      {dragActive && (
-        <div className="drop-overlay">
-          <div className="drop-card">Drop a .dll to load it</div>
+      {drag && (
+        <div className={`drop-overlay${drag.ok ? "" : " reject"}`}>
+          <div className="drop-card">
+            {drag.ok ? (
+              <>
+                <FileCode2 size={26} strokeWidth={1.6} />
+                <span className="dc-title">
+                  {drag.name ? `Drop ${drag.name} to load it` : "Drop a .dll to load it"}
+                </span>
+                {drag.count > 1 && (
+                  <span className="dc-sub">{drag.count} .dll files — the first one is used</span>
+                )}
+              </>
+            ) : (
+              <>
+                <Ban size={26} strokeWidth={1.6} />
+                <span className="dc-title">{drag.name || "That file"} isn't a .dll</span>
+                <span className="dc-sub">ZyMono injects .NET mod assemblies (.dll)</span>
+              </>
+            )}
+          </div>
         </div>
       )}
       {ctxMenu && (
@@ -848,6 +998,7 @@ export default function App() {
               onSelect={onSelect}
               onContext={onContext}
               onList={onProcessList}
+              onSearchFocus={() => setSidebarTab("targets")}
               refreshMs={settings.refreshMs}
             />
           </div>
@@ -962,7 +1113,7 @@ export default function App() {
             <InjectForm
               selected={selected}
               dllPath={dllPath}
-              onDllPick={setDllPath}
+              onDllPick={pickDll}
               modFolder={settings.modFolder}
               namespace={namespace}
               onNamespaceChange={setNamespace}
@@ -975,6 +1126,13 @@ export default function App() {
               onBrowse={() => setBrowserOpen(true)}
               usesHarmony={usesHarmony}
               entryStatus={entryStatus}
+              unloadEntry={unloadEntry}
+              onUnloadChange={setUnloadEntry}
+              expectedArgs={expectedArgs}
+              methodCount={dllEntries?.length ?? null}
+              dllRefs={dllRefs}
+              recent={recentDlls}
+              onRecentChange={setRecentDlls}
             />
           </div>
             <div className={`config-fade${canScrollDown ? " show" : ""}`} />
@@ -985,56 +1143,69 @@ export default function App() {
             )}
           </div>
 
+          <div
+            className="resize-y"
+            onMouseDown={startDrag("y", () => consoleH, applyConsoleH, -1)}
+          />
+
           <div className="action-bar">
-            <div className="action-summary">
-              <span className="as-method">
-                {injectMethod === "auto"
-                  ? "Auto route"
-                  : injectMethod === "pipe"
-                  ? "Pipe injection"
-                  : "Direct injection"}
-              </span>
-              <span className="as-entry">
-                {selected
-                  ? `${selected.name} · ${namespace ? namespace + "." : ""}${className || "Class"}.${
-                      method || "Method"
-                    }`
-                  : "No target selected"}
-              </span>
-            </div>
-            <div className="action-btns">
-              {busy && (
-                <button className="cancel-btn" onClick={onCancel}>
-                  <Ban size={15} /> Cancel
+            <div className="action-inner">
+              <div className="action-summary">
+                <span className="as-method">
+                  {injectMethod === "auto"
+                    ? "Auto route"
+                    : injectMethod === "pipe"
+                    ? "Pipe injection"
+                    : "Direct injection"}
+                </span>
+                <span className="as-entry">
+                  {selected
+                    ? `${selected.name} · ${namespace ? namespace + "." : ""}${className || "Class"}.${
+                        method || "Method"
+                      }`
+                    : "No target selected"}
+                </span>
+              </div>
+              <div className="action-btns">
+                {!!unloadEntry.trim() && (
+                  <button
+                    className="eject-btn"
+                    disabled={!canEject}
+                    onClick={onEject}
+                    title="Call the unload entry point on the copy of your mod that is already loaded"
+                  >
+                    <Eraser size={14} /> Eject
+                  </button>
+                )}
+                {busy && (
+                  <button className="cancel-btn" onClick={onCancel}>
+                    <Ban size={15} /> Cancel
+                  </button>
+                )}
+                <button
+                  className="save-btn"
+                  disabled={!canSave || busy}
+                  onClick={onSaveClick}
+                  title={activeProfileId ? "Update this profile or save a new one" : "Save this setup as a profile"}
+                >
+                  <BookMarked size={14} />
+                  {activeProfileId ? "Update" : "Save"}
+                  {formDirty && <span className="save-dot" />}
                 </button>
-              )}
-              <button
-                className="save-btn"
-                disabled={!canSave || busy}
-                onClick={onSaveClick}
-                title={activeProfileId ? "Update this profile or save a new one" : "Save this setup as a profile"}
-              >
-                <BookMarked size={14} />
-                {activeProfileId ? "Update" : "Save"}
-                {formDirty && <span className="save-dot" />}
-              </button>
-              <button
-                className="inject-btn"
-                disabled={!canInject}
-                onClick={onInject}
-                title={injectHint ?? undefined}
-              >
-                <Syringe size={15} />
-                {busy ? "Injecting…" : runState === "ok" ? "Re-inject" : "Inject"}
-                <span className="inject-kbd">Ctrl ↵</span>
-              </button>
+                <button
+                  className="inject-btn"
+                  disabled={!canInject}
+                  onClick={onInject}
+                  title={injectHint ?? undefined}
+                >
+                  <Syringe size={15} />
+                  {busy ? "Injecting…" : runState === "ok" ? "Re-inject" : "Inject"}
+                  <span className="inject-kbd">Ctrl ↵</span>
+                </button>
+              </div>
             </div>
           </div>
 
-          <div
-            className="resize-y"
-            onMouseDown={startDrag("y", () => consoleH, (v) => setConsoleH(clamp(v, 120, 560)), -1)}
-          />
           <div className="console-region" style={{ height: consoleH }}>
             <StatusLog
               lines={log}

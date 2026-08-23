@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback, useRef, memo, type MouseEvent } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo, memo, type MouseEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { RefreshCw, Cpu, SearchX, AlertTriangle, Boxes } from "lucide-react";
+import { RefreshCw, Cpu, SearchX, AlertTriangle, Boxes, Search, X } from "lucide-react";
 import type { MonoProcess } from "../types";
 import InfoTip from "./InfoTip";
 
@@ -76,16 +76,36 @@ interface Props {
   onSelect: (proc: MonoProcess) => void;
   onContext: (proc: MonoProcess, e: MouseEvent) => void;
   onList?: (procs: MonoProcess[]) => void;
+  onSearchFocus?: () => void;
   refreshMs: number;
 }
 
-export default function ProcessList({ selectedPid, onSelect, onContext, onList, refreshMs }: Props) {
+const matches = (p: MonoProcess, q: string) =>
+  p.name.toLowerCase().includes(q) ||
+  String(p.pid).includes(q) ||
+  p.flavor.toLowerCase().includes(q) ||
+  p.engine.toLowerCase().includes(q) ||
+  (p.exe_path ?? "").toLowerCase().includes(q) ||
+  (p.game_dir ?? "").toLowerCase().includes(q);
+
+export default function ProcessList({
+  selectedPid,
+  onSelect,
+  onContext,
+  onList,
+  onSearchFocus,
+  refreshMs,
+}: Props) {
   const [procs, setProcs] = useState<MonoProcess[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [spinning, setSpinning] = useState(false);
+  const [query, setQuery] = useState("");
   const lastKey = useRef("");
   const onListRef = useRef(onList);
   onListRef.current = onList;
+  const onSearchFocusRef = useRef(onSearchFocus);
+  onSearchFocusRef.current = onSearchFocus;
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(async (manual = false) => {
     if (manual) setSpinning(true);
@@ -112,17 +132,60 @@ export default function ProcessList({ selectedPid, onSelect, onContext, onList, 
     return () => clearInterval(id);
   }, [refresh, refreshMs]);
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== "f") return;
+      e.preventDefault();
+      onSearchFocusRef.current?.();
+      requestAnimationFrame(() => {
+        searchRef.current?.focus();
+        searchRef.current?.select();
+      });
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const q = query.trim().toLowerCase();
+  const shown = useMemo(() => (q ? procs.filter((p) => matches(p, q)) : procs), [procs, q]);
+
   return (
     <div className="sidebar-inner">
       <div className="sidebar-head">
         <div className="sidebar-title">
           <span>Targets</span>
           <InfoTip text="Running Unity/Mono games, auto-refreshed. IL2CPP games show as non-injectable. A 'BepInEx' badge means the loader is actually live in that process. Right-click for full details." />
-          <span className="count">{procs.length}</span>
+          <span className="count">{q ? `${shown.length}/${procs.length}` : procs.length}</span>
         </div>
         <button className="icon-btn" onClick={() => refresh(true)} disabled={spinning} title="Refresh">
           <RefreshCw size={14} className={spinning ? "spin" : ""} />
         </button>
+      </div>
+
+      <div className="target-search">
+        <Search size={13} />
+        <input
+          ref={searchRef}
+          type="text"
+          spellCheck={false}
+          placeholder="Filter targets…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              e.preventDefault();
+              if (query) setQuery("");
+              else e.currentTarget.blur();
+            }
+          }}
+        />
+        {query ? (
+          <button className="ts-clear" title="Clear filter" onClick={() => setQuery("")}>
+            <X size={12} />
+          </button>
+        ) : (
+          <span className="ts-kbd">Ctrl F</span>
+        )}
       </div>
 
       {error && <div className="error-banner">{error}</div>}
@@ -135,7 +198,16 @@ export default function ProcessList({ selectedPid, onSelect, onContext, onList, 
             <small>Launch one and it appears here.</small>
           </div>
         )}
-        {procs.map((p) => (
+        {procs.length > 0 && shown.length === 0 && (
+          <div className="empty-hint">
+            <SearchX size={24} strokeWidth={1.6} />
+            <span>No target matches "{query.trim()}"</span>
+            <button className="text-btn" onClick={() => setQuery("")}>
+              Clear filter
+            </button>
+          </div>
+        )}
+        {shown.map((p) => (
           <Row
             key={p.pid}
             proc={p}

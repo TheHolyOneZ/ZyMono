@@ -5,9 +5,7 @@ using UnityEngine;
 
 namespace ZyMono.Receiver
 {
-    // Runs queued work on the Unity main thread. The pipe server (a background
-    // thread) hands assembly-load work here so it executes where Unity/Harmony
-    // expect it, then blocks for the result.
+
     public class Dispatcher : MonoBehaviour
     {
         private readonly ConcurrentQueue<Action> _queue = new ConcurrentQueue<Action>();
@@ -21,7 +19,6 @@ namespace ZyMono.Receiver
             }
         }
 
-        // Run `func` on the main thread and block the caller until it returns.
         public T RunBlocking<T>(Func<T> func, int timeoutMs)
         {
             T result = default;

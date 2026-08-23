@@ -37,6 +37,7 @@ export interface Profile {
   namespace: string;
   className: string;
   method: string;
+  unload?: string;
   args: string[];
   methodMode: InjectMethod;
   gameExe: string | null;

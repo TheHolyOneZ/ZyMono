@@ -17,6 +17,9 @@ pub struct InjectRequest {
     pub method_mode: String,
     pub timeout_secs: Option<u32>,
     pub delay_ms: Option<u32>,
+
+    #[serde(default)]
+    pub invoke_only: bool,
 }
 
 fn default_mode() -> String {
@@ -70,6 +73,13 @@ fn arch_is_x86(pid: u32) -> bool {
         .find(|p| p.pid == pid)
         .map(|p| p.arch == "x86")
         .unwrap_or(false)
+}
+
+fn assembly_name(dll_path: &str) -> String {
+    std::path::Path::new(dll_path)
+        .file_stem()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_default()
 }
 
 fn full_type(namespace: &str, class_name: &str) -> String {
@@ -134,8 +144,14 @@ pub fn run(app: &AppHandle, req: InjectRequest) -> Result<(), String> {
             }
         }
         let tn = full_type(&req.namespace, &req.class_name);
-        log(&format!("→ sending load request: {} :: {}", tn, req.method));
-        let result = receiver::load(&req.dll_path, &tn, &req.method, &req.args, timeout_ms)?;
+        let result = if req.invoke_only {
+            let asm = assembly_name(&req.dll_path);
+            log(&format!("→ sending invoke request: {} :: {} (already-loaded {})", tn, req.method, asm));
+            receiver::invoke(&asm, &tn, &req.method, &req.args, timeout_ms)?
+        } else {
+            log(&format!("→ sending load request: {} :: {}", tn, req.method));
+            receiver::load(&req.dll_path, &tn, &req.method, &req.args, timeout_ms)?
+        };
         if result.ok {
             if let Some(rv) = result.return_value {
                 if !rv.is_empty() {
@@ -150,6 +166,21 @@ pub fn run(app: &AppHandle, req: InjectRequest) -> Result<(), String> {
         }
     } else {
         let x86 = arch_is_x86(req.pid);
+        if req.invoke_only {
+            inject::invoke_only(
+                req.pid,
+                x86,
+                &req.dll_path,
+                &req.namespace,
+                &req.class_name,
+                &req.method,
+                &req.args,
+                timeout_ms,
+                &log,
+            )?;
+            log("✓ unload entry point returned");
+            return Ok(());
+        }
         inject::direct(
             req.pid,
             x86,

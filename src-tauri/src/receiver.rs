@@ -38,6 +38,12 @@ struct AckWire {
     exception: Option<String>,
 }
 
+impl AckWire {
+    fn ok(&self) -> bool {
+        self.status == "ok"
+    }
+}
+
 pub fn ping(timeout_ms: u32) -> Result<Option<ReceiverHello>, String> {
     let req = serde_json::json!({ "op": "PING" }).to_string();
     match request(&req, timeout_ms) {
@@ -80,6 +86,45 @@ pub fn load(
     let ack: AckWire = serde_json::from_str(&resp).map_err(|e| format!("bad ACK: {e}"))?;
     Ok(LoadResult {
         ok: ack.status == "ok",
+        return_value: ack.return_value,
+        exception: ack.exception,
+    })
+}
+
+pub fn invoke(
+    assembly_name: &str,
+    type_name: &str,
+    method: &str,
+    args: &[String],
+    timeout_ms: u32,
+) -> Result<LoadResult, String> {
+    let req = serde_json::json!({
+        "op": "INVOKE",
+        "assembly": assembly_name,
+        "type": type_name,
+        "method": method,
+        "args": args,
+    })
+    .to_string();
+    let resp = request(&req, timeout_ms).map_err(|e| {
+        if e == NOT_PRESENT {
+            "receiver is not running (no pipe)".to_string()
+        } else {
+            e
+        }
+    })?;
+    let ack: AckWire = serde_json::from_str(&resp).map_err(|e| format!("bad ACK: {e}"))?;
+    if !ack.ok() {
+        if let Some(ex) = &ack.exception {
+            if ex.contains("unknown op") {
+                return Err(
+                    "this game's receiver plugin is too old to unload a mod — reinstall the receiver from the Route panel and restart the game".into(),
+                );
+            }
+        }
+    }
+    Ok(LoadResult {
+        ok: ack.ok(),
         return_value: ack.return_value,
         exception: ack.exception,
     })

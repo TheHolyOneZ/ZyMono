@@ -120,6 +120,19 @@ export default function RouterPanel({ selected, method, onMethodChange, onToast 
           <InfoTip text="ZyMono decides direct vs pipe from what's actually LOADED in the running game — not from folders on disk. If BepInEx isn't live, direct injection works even for a Harmony-patching mod." />
         </span>
         <div className="rs-badges">{statusPills()}</div>
+        <div className="router-methods">
+          {METHODS.map((m) => (
+            <button
+              key={m.key}
+              className={`router-method${method === m.key ? " active" : ""}`}
+              onClick={() => onMethodChange(m.key)}
+              title={m.hint}
+            >
+              {m.icon}
+              {m.label}
+            </button>
+          ))}
+        </div>
         <button className="rs-refresh" onClick={runProbe} disabled={loading} title="Re-check the target">
           <RefreshCw size={13} className={loading ? "spin" : ""} />
         </button>
@@ -166,19 +179,6 @@ export default function RouterPanel({ selected, method, onMethodChange, onToast 
         </div>
       )}
 
-      <div className="router-methods">
-        {METHODS.map((m) => (
-          <button
-            key={m.key}
-            className={`router-method${method === m.key ? " active" : ""}`}
-            onClick={() => onMethodChange(m.key)}
-            title={m.hint}
-          >
-            {m.icon}
-            {m.label}
-          </button>
-        ))}
-      </div>
     </div>
   );
 }

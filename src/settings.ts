@@ -12,6 +12,8 @@ export interface Settings {
   profileAutofill: "ask" | "auto" | "off";
   autoInject: boolean;
   autoInjectDelayMs: number;
+  injectHotkey: string;
+  highContrast: boolean;
 }
 
 export const ACCENTS: { name: string; colors: [string, string] }[] = [
@@ -35,6 +37,8 @@ export const DEFAULT_SETTINGS: Settings = {
   profileAutofill: "ask",
   autoInject: false,
   autoInjectDelayMs: 5000,
+  injectHotkey: "",
+  highContrast: false,
 };
 
 export function loadSettings(): Settings {
@@ -66,6 +70,12 @@ function toHex(n: number): string {
 export function lighten(hex: string, amt = 0.28): string {
   const [r, g, b] = hexToRgb(hex);
   return `#${toHex(r + (255 - r) * amt)}${toHex(g + (255 - g) * amt)}${toHex(b + (255 - b) * amt)}`;
+}
+
+export function applyContrast(high: boolean) {
+  const root = document.documentElement;
+  if (high) root.setAttribute("data-contrast", "high");
+  else root.removeAttribute("data-contrast");
 }
 
 export function applyAccent([a, a2]: [string, string]) {

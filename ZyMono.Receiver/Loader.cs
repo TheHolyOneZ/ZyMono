@@ -4,9 +4,7 @@ using System.Reflection;
 
 namespace ZyMono.Receiver
 {
-    // Loads a managed assembly and invokes one entry point. Runs on the Unity
-    // main thread (via Dispatcher), so Harmony patching / Unity API calls made
-    // by the entry point are safe.
+
     internal static class Loader
     {
         public static string Load(string path, string typeName, string method, string[] args)
@@ -14,10 +12,36 @@ namespace ZyMono.Receiver
             if (!File.Exists(path))
                 throw new FileNotFoundException("assembly not found", path);
 
-            // Load from bytes so the file isn't locked on disk.
             byte[] bytes = File.ReadAllBytes(path);
             Assembly asm = Assembly.Load(bytes);
 
+            return InvokeIn(asm, typeName, method, args);
+        }
+
+        public static string Invoke(string assemblyName, string typeName, string method, string[] args)
+        {
+            if (string.IsNullOrEmpty(assemblyName))
+                throw new Exception("no assembly name");
+
+            Assembly asm = null;
+            Assembly[] loaded = AppDomain.CurrentDomain.GetAssemblies();
+
+            for (int i = loaded.Length - 1; i >= 0; i--)
+            {
+                if (string.Equals(loaded[i].GetName().Name, assemblyName, StringComparison.OrdinalIgnoreCase))
+                {
+                    asm = loaded[i];
+                    break;
+                }
+            }
+            if (asm == null)
+                throw new Exception("assembly not loaded in this game: " + assemblyName);
+
+            return InvokeIn(asm, typeName, method, args);
+        }
+
+        private static string InvokeIn(Assembly asm, string typeName, string method, string[] args)
+        {
             Type type = asm.GetType(typeName, throwOnError: false);
             if (type == null)
                 throw new Exception("type not found: " + typeName);

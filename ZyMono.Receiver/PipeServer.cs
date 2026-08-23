@@ -7,10 +7,7 @@ using System.Threading;
 
 namespace ZyMono.Receiver
 {
-    // Named-pipe server speaking ZyMono's request/response protocol:
-    //   PING -> HELLO(version, game, mono_domain_ready)
-    //   LOAD(path,type,method,args) -> ACK(status, return_value?, exception?)
-    // Framing: 4-byte little-endian length prefix + UTF-8 JSON.
+
     internal class PipeServer
     {
         private const string PipeName = "zymono-receiver";
@@ -69,6 +66,7 @@ namespace ZyMono.Receiver
                 string op = msg.TryGetValue("op", out var o) ? o as string : "";
                 if (op == "PING") response = Hello();
                 else if (op == "LOAD") response = HandleLoad(msg);
+                else if (op == "INVOKE") response = HandleInvoke(msg);
                 else response = Ack(false, null, "unknown op: " + op);
             }
             catch (Exception e)
@@ -109,6 +107,30 @@ namespace ZyMono.Receiver
             {
                 var inner = e.InnerException ?? e;
                 Plugin.Log?.LogError("load failed: " + inner);
+                return Ack(false, null, inner.GetType().Name + ": " + inner.Message);
+            }
+        }
+
+        private string HandleInvoke(Dictionary<string, object> msg)
+        {
+            string assembly = msg.TryGetValue("assembly", out var a) ? a as string : null;
+            string type = msg.TryGetValue("type", out var t) ? t as string : null;
+            string method = msg.TryGetValue("method", out var m) ? m as string : null;
+            string[] args = ExtractArgs(msg);
+
+            if (string.IsNullOrEmpty(assembly)) return Ack(false, null, "no assembly");
+            Plugin.Log?.LogInfo($"INVOKE {assembly} :: {type}.{method}");
+
+            try
+            {
+                string ret = _dispatcher.RunBlocking(
+                    () => Loader.Invoke(assembly, type, method, args), 30000);
+                return Ack(true, ret, null);
+            }
+            catch (Exception e)
+            {
+                var inner = e.InnerException ?? e;
+                Plugin.Log?.LogError("invoke failed: " + inner);
                 return Ack(false, null, inner.GetType().Name + ": " + inner.Message);
             }
         }

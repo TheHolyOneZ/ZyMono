@@ -5,8 +5,7 @@ using System.Text;
 
 namespace ZyMono.Receiver
 {
-    // Minimal JSON for this fixed protocol — object of string values plus an
-    // optional string array ("args"). Avoids pulling in a JSON dependency.
+
     internal static class Json
     {
         public static Dictionary<string, object> Parse(string s)
@@ -32,7 +31,7 @@ namespace ZyMono.Receiver
         private static Dictionary<string, object> ParseObject(string s, ref int i)
         {
             var d = new Dictionary<string, object>();
-            i++; // {
+            i++;
             SkipWs(s, ref i);
             if (s[i] == '}') { i++; return d; }
             while (true)
@@ -40,7 +39,7 @@ namespace ZyMono.Receiver
                 SkipWs(s, ref i);
                 string key = ParseString(s, ref i);
                 SkipWs(s, ref i);
-                i++; // :
+                i++;
                 d[key] = ParseValue(s, ref i);
                 SkipWs(s, ref i);
                 if (s[i] == ',') { i++; continue; }
@@ -53,7 +52,7 @@ namespace ZyMono.Receiver
         private static List<object> ParseArray(string s, ref int i)
         {
             var a = new List<object>();
-            i++; // [
+            i++;
             SkipWs(s, ref i);
             if (s[i] == ']') { i++; return a; }
             while (true)
@@ -70,7 +69,7 @@ namespace ZyMono.Receiver
         private static string ParseString(string s, ref int i)
         {
             var sb = new StringBuilder();
-            i++; // opening quote
+            i++;
             while (s[i] != '"')
             {
                 char c = s[i++];
@@ -94,7 +93,7 @@ namespace ZyMono.Receiver
                 }
                 else sb.Append(c);
             }
-            i++; // closing quote
+            i++;
             return sb.ToString();
         }
 

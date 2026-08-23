@@ -17,7 +17,7 @@
 </p>
 
 <p>
-<a href="https://zlogic.eu/zymono/"><img src="https://img.shields.io/badge/download-v0.1.0%20%C2%B7%20Windows%20x64-2f8fff?style=for-the-badge&logo=windows&logoColor=white" alt="Download ZyMono for Windows" /></a>
+<a href="https://zlogic.eu/zymono/"><img src="https://img.shields.io/badge/download-v0.2.0%20%C2%B7%20Windows%20x64-2f8fff?style=for-the-badge&logo=windows&logoColor=white" alt="Download ZyMono for Windows" /></a>
 </p>
 
 <p>
@@ -30,7 +30,7 @@
 
 <br/>
 
-<img src="docs/img/hero.png" alt="ZyMono injecting a C# mod into a live Unity game through its in-game receiver, with a confirmed Detect → Ping → Send → Confirm → Done trail" width="860" />
+<img src="docs/img/hero.png" alt="ZyMono injecting a C# mod into a live Unity game: filterable target list, the routing decision explained in plain English, entry point with live validation, and a confirmed Open → Resolve → Write → Invoke → Done trail" width="860" />
 
 </div>
 
@@ -38,6 +38,7 @@
 
 <div align="center">
 
+<a href="#-whats-new-in-020">What's new</a> ·
 <a href="#-what-is-zymono">What is it</a> ·
 <a href="#-feature-overview">Features</a> ·
 <a href="#-how-injection-works">How it works</a> ·
@@ -51,13 +52,57 @@
 
 ---
 
+## 🆕 What's new in 0.2.0
+
+*A release shaped almost entirely by user feedback — every item below came from someone actually modding with it.*
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+**🔍 Search / filter the target list**
+Type a few letters — `Raft` — and the Targets list narrows instantly. <kbd>Ctrl</kbd>+<kbd>F</kbd> from anywhere jumps into the box; <kbd>Esc</kbd> clears it. No more hunting through thirty processes.
+
+**📋 Paste a whole entry point**
+Copy `RaftMod.Main.Init` from anywhere and paste it into **any** of the three entry-point boxes — ZyMono splits it into Namespace / Class / Method for you. It also cleans up what it's given: `RaftMod::Main::Init`, a trailing `(string[] args)`, or a copied log line all resolve correctly.
+
+**📂 Recent DLLs dropdown**
+A dropdown next to **Choose DLL** remembers the last **5** assemblies you injected. Re-testing the same mod is now one click instead of a file dialog. Entries can be forgotten individually.
+
+**⌨️ Global inject hotkey**
+Bind any combination (<kbd>F11</kbd>, <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>I</kbd>, …) in **Settings → Injection** and fire an injection **while the game has focus** — no Alt-Tab. ZyMono toasts what happened, and tells you if there's nothing configured to inject yet.
+
+</td>
+<td width="50%" valign="top">
+
+**⏏️ Optional unload / eject entry point**
+Give ZyMono a second, optional entry point — `MyMod.Loader.Unload` — and an **Eject** button appears beside **Inject**. It calls that method on the copy of your assembly that is *already live*, so your statics are the ones `Init` set up. Reload a mod without restarting the game. Leave it blank and nothing changes.
+
+**🖱️ Drag-and-drop a DLL**
+Drop a `.dll` anywhere on the window to load it. The overlay names the file before you let go, and politely refuses anything that isn't a .NET assembly.
+
+**🧭 Action bar moved next to the target**
+**Save** and **Inject** now sit in a dedicated action bar directly under the form, alongside a live summary of *what* is about to be injected *where* — your eyes no longer cross the whole monitor between the target and the button that acts on it.
+
+**🖥️ A real widescreen layout**
+Maximize the window and the config panel reflows: one column → **two** at 780 px → **three** at 1500 px. No more 60 % of a widescreen monitor left as empty black space.
+
+**♿ High-contrast mode**
+**Settings → Appearance → High contrast** raises borders, surfaces and text contrast across the whole app, on top of whichever accent you use.
+
+</td>
+</tr>
+</table>
+
+---
+
 ## 🧩 What is ZyMono?
 
 **ZyMono** is a clean, powerful desktop app for injecting a managed **C# DLL** into a running **Mono-based Unity game** on Windows. You point it at a game, choose your mod's entry point (`Namespace.Class.Method`), and press **Inject** — ZyMono loads your DLL into the game's Mono runtime, calls your method, and tells you exactly what happened.
 
 What sets ZyMono apart is **how it decides to inject**. Many modern games already run a mod loader such as **BepInEx**, and many mods apply **Harmony** patches. Loading blindly in that situation can clash with what the loader is doing. ZyMono looks at **what is genuinely live inside the game right now** and routes your DLL the safe way — automatically, and with **confirmation** that it actually loaded, instead of firing blindly.
 
-It's built for people who mod the games they own, and it's meant to feel premium: a fast native UI, saved profiles, auto-inject on launch, entry-point validation, and a live console that shows every step.
+It's built for people who mod the games they own, and it's meant to feel premium: a fast native UI, saved profiles, auto-inject on launch, entry-point validation, a **global inject hotkey** you can fire without leaving the game, an optional **Eject** route that reloads a mod without restarting, and a live console that shows every step.
 
 > **In one line:** *ZyMono is a smart, confirming Mono injector — it detects whether a mod loader is actually running and picks Direct or Pipe injection for you.*
 
@@ -71,6 +116,7 @@ It's built for people who mod the games they own, and it's meant to feel premium
 
 ### 🎯 Targets
 - Auto-refreshing list of running Mono/Unity games
+- **Search / filter** box (<kbd>Ctrl</kbd>+<kbd>F</kbd>) — type `Raft`, get Raft.exe
 - **Mono vs IL2CPP** classification (IL2CPP marked non-injectable)
 - Runtime flavor (`mono` / `mono-2.0-bdwgc`), **x86/x64**, thread count
 - Badges: architecture, **BepInEx-live**, duplicate PID, suspect
@@ -114,6 +160,7 @@ It's built for people who mod the games they own, and it's meant to feel premium
 - Captures the **return value** and any **managed exception** (class + message)
 - **Bounded timeout** so it never hangs
 - Optional pre-inject **delay** (0–5000 ms)
+- **Eject / reload** — calls your unload entry point on the assembly that's *already live*
 
 </td>
 <td width="33%" valign="top">
@@ -124,6 +171,8 @@ It's built for people who mod the games they own, and it's meant to feel premium
 - Badges: **static / void / arg-count**; "compatible only" filter
 - Pick a method → auto-fills the fields and argument slots
 - **Live validation:** `✓ Entry point found`, *not found*, or *not static void* — before you inject
+- **Paste `Namespace.Class.Method` into any box** and it splits itself
+- Optional **unload entry point** → an **Eject** button appears
 
 </td>
 <td width="33%" valign="top">
@@ -167,18 +216,21 @@ It's built for people who mod the games they own, and it's meant to feel premium
 - Frameless window, **close-to-tray**, tray menu (Show / Quit)
 - **Resizable** sidebar & console, remembered between runs
 - **Drag-and-drop** a `.dll` onto the window
-- **6 accent themes** + a custom colour picker
-- First-run guide, tooltips, toasts, scroll hints
-- Shortcuts: <kbd>Ctrl</kbd>+<kbd>Enter</kbd> inject · <kbd>Esc</kbd> cancel · <kbd>Ctrl</kbd>+<kbd>L</kbd> clear
+- **Recent DLLs** dropdown — the last 5, one click away
+- Action bar with a live *what → where* summary, right under the form
+- **Widescreen layout**: 1 → 2 → 3 columns as the window grows
+- **6 accent themes** + custom colour picker + **high-contrast mode**
+- Shortcuts: <kbd>Ctrl</kbd>+<kbd>Enter</kbd> inject · <kbd>Esc</kbd> cancel · <kbd>Ctrl</kbd>+<kbd>L</kbd> clear · <kbd>Ctrl</kbd>+<kbd>F</kbd> find target
+- **Global inject hotkey** — fire from inside the game, no Alt-Tab
 
 </td>
 </tr>
 </table>
 
 <div align="center">
-<img src="docs/img/settings.png" alt="ZyMono's categorised settings: default route, injection timeout, auto-inject wait time and appearance" width="720" />
+<img src="docs/img/settings.png" alt="ZyMono's categorised settings: process refresh, DLL picker folder, profile autofill, auto-inject on launch with a wait time, and the global inject hotkey" width="720" />
 <br/>
-<sub>Categorised settings — default route, injection timeout &amp; delay, auto-inject on launch with a configurable wait time, custom accent colours, and more.</sub>
+<sub>Categorised settings — process refresh, DLL picker folder, profile autofill, auto-inject on launch with a configurable wait time, and the <b>global inject hotkey</b> that works while you're in the game.</sub>
 </div>
 
 ---
@@ -223,9 +275,9 @@ That's the difference between *"there's a BepInEx folder here somewhere"* and *"
 ```
 
 <div align="center">
-<img src="docs/img/profiles.png" alt="ZyMono's Profiles tab with one-click inject, entry-point validation, and the confirmed pipe route" width="860" />
+<img src="docs/img/profiles.png" alt="ZyMono's Profiles tab with one-click inject, favourites, auto-inject flags, import/export and entry-point validation" width="860" />
 <br/>
-<sub>Profiles &amp; one-click inject, entry-point validation, and the confirming pipe route — all in one view.</sub>
+<sub>Profiles &amp; one-click inject — favourites, auto-inject flags, import/export, and a live dot when the profile's game is running.</sub>
 </div>
 
 ---
@@ -249,6 +301,10 @@ ZyMono builds on the well-known **SharpMonoInjector (SMI)** technique and an ear
 | Saved **profiles** + one-click inject | ❌ | ⚠️ | ✅ |
 | **Auto-inject** on launch | ❌ | ✅ | ✅ *(configurable delay)* |
 | Receiver auto-discovery / install | ❌ | ❌ | ✅ |
+| **Global hotkey** — inject without Alt-Tabbing | ❌ | ❌ | ✅ |
+| **Eject / reload** a mod without restarting the game | ❌ | ❌ | ✅ *(optional unload entry point)* |
+| Searchable target list · recent DLLs · paste-to-split entry point | ❌ | ❌ | ✅ |
+| High-contrast mode & adaptive widescreen layout | ❌ | ❌ | ✅ |
 | Interface | WinForms / CLI | varies | Modern native UI (Tauri) |
 
 </div>
@@ -270,14 +326,15 @@ Add profiles, auto-inject, entry-point validation, Harmony detection and a moder
 
 ## 📥 Getting started
 
-> 📦 **Download ZyMono for Windows (v0.1.0)** from the official page: **[zlogic.eu/zymono](https://zlogic.eu/zymono/)** — grab the installer (.exe) or MSI right there.
+> 📦 **Download ZyMono for Windows (v0.2.0)** from the official page: **[zlogic.eu/zymono](https://zlogic.eu/zymono/)** — grab the installer (.exe) or MSI right there.
 > Signed and auto-updating — future versions install themselves from inside the app. This GitHub repo is the **source code**; prefer not to run a pre-built binary? **[Build it yourself](#-build-it-yourself)** in a couple of minutes.
 
 1. **Launch your game.** It appears in the **Targets** list on the left, with its runtime and architecture.
 2. **Select the game.** ZyMono shows what's live inside it and pre-picks a route.
-3. **Choose your mod `.dll`** (or drag-and-drop it) and set its entry point — `Namespace`, `Class`, `Method`. ZyMono confirms the method exists: `✓ Entry point found`. Not sure of the name? Hit **Browse methods**.
+3. **Choose your mod `.dll`** — browse for it, drag-and-drop it onto the window, or pick it from **Recent**. Set its entry point: paste the whole `Namespace.Class.Method` into any box and ZyMono splits it for you. It confirms the method exists: `✓ Entry point found`. Not sure of the name? Hit **Browse methods**.
 4. **Leave the route on Auto** *(recommended)* and press **Inject**. Watch the console step through `Detect → Ping → Send → Confirm → Done`.
 5. **Save it as a Profile** so next time it's one click — or flag it for **Auto-inject** so it fires the moment the game launches.
+6. *(Optional)* Set a **global hotkey** in Settings and re-inject from inside the game, or fill in an **unload entry point** to get an **Eject** button that reloads your mod without restarting.
 
 > 💡 ZyMono injects into **Mono** games. **IL2CPP** games have no Mono runtime and are shown as *not injectable*.
 
@@ -380,6 +437,18 @@ The receiver plugin isn't loaded in the game yet. Use ZyMono's <em>Install recei
 <summary><b>Is IL2CPP supported?</b></summary>
 <br/>
 No. IL2CPP compiles C# ahead-of-time and has no Mono runtime, so managed injection doesn't apply. ZyMono clearly marks IL2CPP games as not injectable.
+</details>
+
+<details>
+<summary><b>Can I reload my mod without restarting the game?</b></summary>
+<br/>
+Yes, if your mod supports it. Fill in the optional <b>unload entry point</b> (e.g. <code>MyMod.Loader.Unload</code>) and an <b>Eject</b> button appears next to Inject. ZyMono calls that method on the copy of your assembly that is <em>already loaded</em>, so the statics it tears down are the ones your <code>Init</code> set up. Then just Inject again. Most mods can't unload themselves — leave the box blank and nothing changes.
+</details>
+
+<details>
+<summary><b>Can I inject without Alt-Tabbing out of the game?</b></summary>
+<br/>
+Yes. Set a <b>global inject hotkey</b> in <em>Settings → Injection</em> (<kbd>F11</kbd>, <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>I</kbd>, anything you like). Once a target and DLL are configured, the hotkey fires an injection while the game has focus and ZyMono toasts the result.
 </details>
 
 <details>

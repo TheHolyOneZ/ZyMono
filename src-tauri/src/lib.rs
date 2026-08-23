@@ -13,7 +13,7 @@ use scanner::MonoProcess;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Manager,
+    AppHandle, Emitter, Manager,
 };
 
 #[tauri::command]
@@ -78,6 +78,21 @@ fn cancel_injection(_pid: u32) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn set_inject_hotkey(app: AppHandle, accel: Option<String>) -> Result<(), String> {
+    use tauri_plugin_global_shortcut::GlobalShortcutExt;
+
+    let gs = app.global_shortcut();
+    let _ = gs.unregister_all();
+
+    let accel = match accel {
+        Some(a) if !a.trim().is_empty() => a.trim().to_string(),
+        _ => return Ok(()),
+    };
+    gs.register(accel.as_str())
+        .map_err(|e| format!("couldn't register {accel}: {e} — it may already be taken by another app"))
+}
+
+#[tauri::command]
 fn open_player_log(game_dir: Option<String>) -> Result<String, String> {
     diag::open_player_log(game_dir)
 }
@@ -119,13 +134,44 @@ fn profiles_save(json: String) -> Result<(), String> {
     std::fs::write(&p, json).map_err(|e| format!("save profiles: {e}"))
 }
 
+#[cfg(windows)]
+fn allow_drops_when_elevated(window: &tauri::WebviewWindow) {
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::UI::WindowsAndMessaging::{ChangeWindowMessageFilterEx, MSGFLT_ALLOW};
+
+    const WM_DROPFILES: u32 = 0x0233;
+    const WM_COPYDATA: u32 = 0x004A;
+    const WM_COPYGLOBALDATA: u32 = 0x0049;
+
+    let Ok(handle) = window.hwnd() else { return };
+    let hwnd = HWND(handle.0 as isize as *mut std::ffi::c_void);
+    unsafe {
+        for msg in [WM_DROPFILES, WM_COPYDATA, WM_COPYGLOBALDATA] {
+            let _ = ChangeWindowMessageFilterEx(hwnd, msg, MSGFLT_ALLOW, None);
+        }
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(|app, _shortcut, event| {
+                    if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                        let _ = app.emit("zymono://hotkey-inject", ());
+                    }
+                })
+                .build(),
+        )
         .setup(|app| {
+            #[cfg(windows)]
+            if let Some(w) = app.get_webview_window("main") {
+                allow_drops_when_elevated(&w);
+            }
 
             let show = MenuItem::with_id(app, "show", "Show ZyMono", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit ZyMono", true, None::<&str>)?;
@@ -181,6 +227,7 @@ pub fn run() {
             receiver_install_target,
             inject,
             cancel_injection,
+            set_inject_hotkey,
             open_player_log,
             reveal_path,
             save_text,

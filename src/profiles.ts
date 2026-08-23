@@ -29,6 +29,7 @@ function normalize(p: Partial<Profile>): Profile {
     namespace: p.namespace ?? "",
     className: p.className ?? "",
     method: p.method ?? "",
+    unload: p.unload ?? "",
     args: p.args ?? [],
     methodMode: p.methodMode ?? "auto",
     gameExe: p.gameExe ?? null,

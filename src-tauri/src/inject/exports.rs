@@ -101,6 +101,9 @@ fn read_exports(mem: &Memory, base: u64, is64: bool) -> Result<HashMap<String, u
     let mut want: std::collections::HashSet<&str> = REQUIRED.iter().copied().collect();
 
     want.insert("mono_string_new");
+
+    want.insert("mono_assembly_name_new");
+    want.insert("mono_assembly_loaded");
     let mut map: HashMap<String, u64> = HashMap::new();
 
     for i in 0..num_names {

@@ -22,6 +22,7 @@ import {
 import { ACCENTS, DEFAULT_SETTINGS, lighten, type Settings } from "../settings";
 import type { InjectMethod } from "../types";
 import InfoTip from "./InfoTip";
+import HotkeyInput from "./HotkeyInput";
 
 const openUrl = (u: string) => invoke("reveal_path", { path: u }).catch(() => {});
 
@@ -215,6 +216,18 @@ export default function SettingsModal({
                     <span className="setting-unit">seconds</span>
                   </div>
                 </div>
+
+                <div className="setting">
+                  <div className="setting-label">
+                    Global inject hotkey
+                    <InfoTip text="A system-wide shortcut that injects the setup currently on screen — it works while the game has focus, so you don't have to alt-tab back to ZyMono. Pick something the game doesn't use." />
+                    <span className="setting-hint">works while you're in the game</span>
+                  </div>
+                  <HotkeyInput
+                    value={settings.injectHotkey}
+                    onChange={(accel) => onChange({ injectHotkey: accel })}
+                  />
+                </div>
               </>
             )}
 
@@ -293,6 +306,15 @@ export default function SettingsModal({
 
             {cat === "appearance" && (
               <>
+                <div className="setting setting-inline">
+                  <div className="setting-label">
+                    High contrast
+                    <InfoTip text="Pure-black background, solid borders and brighter text — the same idea as GitHub's and Discord's high-contrast themes. Your accent colour is kept, just lifted so it stays readable." />
+                    <span className="setting-hint">stronger borders and text, black ground</span>
+                  </div>
+                  <Toggle on={settings.highContrast} set={(v) => onChange({ highContrast: v })} />
+                </div>
+
                 <div className="setting">
                   <div className="setting-label">
                     Accent color
