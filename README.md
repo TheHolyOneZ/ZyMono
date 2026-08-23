@@ -17,7 +17,11 @@
 </p>
 
 <p>
-<b>🏠 Home &amp; downloads</b> <sub>(coming soon)</sub> — <a href="https://zlogic.eu/zymono/">zlogic.eu/zymono</a> &nbsp;·&nbsp;
+<a href="https://zlogic.eu/zymono/"><img src="https://img.shields.io/badge/download-v0.1.0%20%C2%B7%20Windows%20x64-2f8fff?style=for-the-badge&logo=windows&logoColor=white" alt="Download ZyMono for Windows" /></a>
+</p>
+
+<p>
+<b>🏠 Home &amp; downloads</b> — <a href="https://zlogic.eu/zymono/">zlogic.eu/zymono</a> &nbsp;·&nbsp;
 <b>🌐 More projects</b> — <a href="https://zsync.eu">zsync.eu</a> &nbsp;·&nbsp;
 <b>🎮 Mods &amp; mod menus</b> — <a href="https://zlogic.eu">zlogic.eu</a>
 </p>
@@ -266,8 +270,8 @@ Add profiles, auto-inject, entry-point validation, Harmony detection and a moder
 
 ## 📥 Getting started
 
-> 📦 **Pre-built installers** will be published on the official site: **[zlogic.eu/zymono](https://zlogic.eu/zymono/)**.
-> This GitHub repository is the **source code** and project home. Prefer not to run a pre-built binary? You can **[build it yourself](#-build-it-yourself)** in a couple of minutes.
+> 📦 **Download ZyMono for Windows (v0.1.0)** from the official page: **[zlogic.eu/zymono](https://zlogic.eu/zymono/)** — grab the installer (.exe) or MSI right there.
+> Signed and auto-updating — future versions install themselves from inside the app. This GitHub repo is the **source code**; prefer not to run a pre-built binary? **[Build it yourself](#-build-it-yourself)** in a couple of minutes.
 
 1. **Launch your game.** It appears in the **Targets** list on the left, with its runtime and architecture.
 2. **Select the game.** ZyMono shows what's live inside it and pre-picks a route.
