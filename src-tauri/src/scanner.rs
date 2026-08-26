@@ -33,6 +33,7 @@ pub struct MonoProcess {
     pub injectable: bool,
     pub duplicate: bool,
     pub bepinex_live: bool,
+    pub mod_loader: Option<String>,
     pub app_id: Option<String>,
 }
 
@@ -97,16 +98,32 @@ fn is_il2cpp(module_base: &str) -> bool {
 }
 
 fn bepinex_live_from_modules(mods: &[ModuleInfo]) -> bool {
+    mod_loader_from_modules(mods).as_deref() == Some("BepInEx")
+}
+
+fn mod_loader_from_modules(mods: &[ModuleInfo]) -> Option<String> {
     for m in mods {
-        let n = &m.name;
-        if n.contains("bepinex") || n.contains("doorstop") || n.contains("il2cppinterop") {
-            return true;
-        }
-        if (n == "winhttp.dll" || n == "version.dll") && !is_system_path(&m.path) {
-            return true;
+        if m.name.contains("melonloader") {
+            return Some("MelonLoader".into());
         }
     }
-    false
+    for m in mods {
+        if m.name.contains("bepinex") || m.name.contains("doorstop") {
+            return Some("BepInEx".into());
+        }
+    }
+    for m in mods {
+        if is_system_path(&m.path) {
+            continue;
+        }
+        if m.name == "version.dll" {
+            return Some("MelonLoader".into());
+        }
+        if m.name == "winhttp.dll" {
+            return Some("BepInEx".into());
+        }
+    }
+    None
 }
 
 fn is_system_path(path: &str) -> bool {
@@ -224,7 +241,7 @@ fn inspect(pid: u32, exe_name: &str, thread_count: u32) -> Option<MonoProcess> {
         .and_then(|p| p.parent().map(|d| d.to_path_buf()));
     let app_id = game_dir.as_deref().and_then(read_steam_appid);
 
-    let injectable = engine == "Mono";
+    let injectable = engine == "Mono" || engine == "IL2CPP";
 
     Some(MonoProcess {
         pid,
@@ -242,6 +259,7 @@ fn inspect(pid: u32, exe_name: &str, thread_count: u32) -> Option<MonoProcess> {
         injectable,
         duplicate: false,
         bepinex_live: bepinex_live_from_modules(&mods),
+        mod_loader: mod_loader_from_modules(&mods),
         app_id,
     })
 }
@@ -300,6 +318,7 @@ fn fake_target() -> MonoProcess {
         injectable: true,
         duplicate: false,
         bepinex_live: false,
+        mod_loader: None,
         app_id: None,
     }
 }

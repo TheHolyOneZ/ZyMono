@@ -18,13 +18,15 @@ import {
   Eraser,
   FileCode2,
 } from "lucide-react";
-import type { EntryPoint, InjectMethod, MonoProcess, Profile, RunState } from "./types";
+import type { DllKind, EntryPoint, InjectMethod, MonoProcess, NativeMode, Profile, RunState } from "./types";
 import { checkForUpdate, installUpdate, type UpdateInfo } from "./updater";
 import TitleBar from "./components/TitleBar";
 import ProcessList from "./components/ProcessList";
 import ProfilesList from "./components/ProfilesList";
 import InjectForm from "./components/InjectForm";
 import RouterPanel from "./components/RouterPanel";
+import ProxyPanel from "./components/ProxyPanel";
+import { Launch } from "./components/Launch";
 import StatusLog from "./components/StatusLog";
 import MetadataBrowser from "./components/MetadataBrowser";
 import InfoTip from "./components/InfoTip";
@@ -57,6 +59,8 @@ interface InjectCfg {
   args: string[];
   methodMode: InjectMethod;
   invokeOnly?: boolean;
+  native?: boolean;
+  nativeMode?: NativeMode;
 }
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
@@ -100,6 +104,12 @@ export default function App() {
   const [args, setArgs] = useState<string[]>([]);
   const [recentDlls, setRecentDlls] = useState<string[]>(loadRecentDlls);
   const [injectMethod, setInjectMethod] = useState<InjectMethod>(() => loadSettings().defaultRoute);
+  const [native, setNative] = useState(false);
+  const [nativeMode, setNativeMode] = useState<NativeMode>("loadlibrary");
+  const [proxyOpen, setProxyOpen] = useState(false);
+  const [dllKind, setDllKind] = useState<DllKind | null>(null);
+
+  const [splash, setSplash] = useState(() => !(window as unknown as { __zymonoSplashDone?: boolean }).__zymonoSplashDone);
   const [dllEntries, setDllEntries] = useState<EntryPoint[] | null>(null);
   const [dllRefs, setDllRefs] = useState<string[]>([]);
   const [log, setLog] = useState<string[]>([]);
@@ -308,6 +318,18 @@ export default function App() {
   }, [append]);
 
   useEffect(() => {
+    const un = listen<string>("zymono://proxy-log", (e) => append(e.payload));
+    return () => {
+      un.then((f) => f());
+    };
+  }, [append]);
+
+  useEffect(() => {
+    if (!selected || dllPath) return;
+    setNative(false);
+  }, [selected?.pid]);
+
+  useEffect(() => {
     if (runState !== "running") return;
     const id = setInterval(() => setElapsed(Date.now() - startedAt.current), 100);
     return () => clearInterval(id);
@@ -321,6 +343,7 @@ export default function App() {
     if (!dllPath) {
       setDllEntries(null);
       setDllRefs([]);
+      setDllKind(null);
       return;
     }
     let live = true;
@@ -330,10 +353,19 @@ export default function App() {
     invoke<string[]>("assembly_references", { dllPath })
       .then((r) => live && setDllRefs(r))
       .catch(() => live && setDllRefs([]));
+    invoke<DllKind>("dll_kind", { dllPath })
+      .then((k) => live && setDllKind(k))
+      .catch(() => live && setDllKind(null));
     return () => {
       live = false;
     };
   }, [dllPath]);
+
+  useEffect(() => {
+    if (!dllKind) return;
+    if (dllKind.kind === "native") setNative(true);
+    else if (dllKind.kind === "managed") setNative(false);
+  }, [dllKind?.kind]);
 
   const usesHarmony = dllRefs.some((r) => /harmony/i.test(r));
   const entryMatch = (() => {
@@ -531,16 +563,20 @@ export default function App() {
   };
 
   const busy = runState === "running";
-  const canInject =
-    !busy && !!dllPath && !!className.trim() && !!method.trim() && !!selected && selected.injectable;
+
+  const autoRegister = !!dllKind && (dllKind.has_melon_info || dllKind.has_bep_in_plugin);
+  const canInject = !busy && !!dllPath && !!selected && selected.injectable && (
+    native ? true : autoRegister ? true : (!!className.trim() && !!method.trim())
+  );
   const canEject =
-    !busy && !!dllPath && !!unloadEntry.trim() && !!selected && selected.injectable;
+    !busy && !!dllPath && !!unloadEntry.trim() && !!selected && selected.injectable && !native;
 
   const injectHint = (() => {
     if (canInject || busy) return null;
     if (!selected) return "Select a target on the left";
     if (!selected.injectable) return "This target isn't injectable";
     if (!dllPath) return "Choose a mod DLL";
+    if (native || autoRegister) return null;
     if (!className.trim()) return "Enter the class name";
     if (!method.trim()) return "Enter the method name";
     return null;
@@ -574,6 +610,8 @@ export default function App() {
           timeout_secs: settings.timeoutSecs,
           delay_ms: cfg.invokeOnly ? 0 : settings.injectDelayMs,
           invoke_only: !!cfg.invokeOnly,
+          native: !!cfg.native,
+          native_mode: cfg.nativeMode ?? "loadlibrary",
         },
       });
       setRunState("ok");
@@ -593,7 +631,11 @@ export default function App() {
 
   const onInject = () => {
     if (!selected) return;
-    runInjection(selected, { dllPath, namespace, className, method, args, methodMode: injectMethod });
+
+    const cfg: InjectCfg = autoRegister && !native
+      ? { dllPath, namespace: "", className: "", method: "", args: [], methodMode: injectMethod, native, nativeMode }
+      : { dllPath, namespace, className, method, args, methodMode: injectMethod, native, nativeMode };
+    runInjection(selected, cfg);
   };
 
   const onEject = () => {
@@ -622,6 +664,8 @@ export default function App() {
     setUnloadEntry(p.unload ?? "");
     setArgs(p.args);
     setInjectMethod(p.methodMode);
+    setNative(!!p.native);
+    setNativeMode(p.nativeMode ?? "loadlibrary");
     setActiveProfileId(p.id);
   };
   const onLoadProfile = (p: Profile) => {
@@ -660,6 +704,8 @@ export default function App() {
     unload: unloadEntry,
     args,
     methodMode: injectMethod,
+    native,
+    nativeMode,
     gameExe: selected?.exe_path ? basename(selected.exe_path) : null,
     gameName: selected?.name ?? null,
     updated: Date.now(),
@@ -750,6 +796,8 @@ export default function App() {
       activeProfile.method !== method ||
       (activeProfile.unload ?? "") !== unloadEntry ||
       activeProfile.methodMode !== injectMethod ||
+      (activeProfile.native ?? false) !== native ||
+      (activeProfile.nativeMode ?? "loadlibrary") !== nativeMode ||
       JSON.stringify(activeProfile.args) !== JSON.stringify(args));
 
   const onSaveClick = (e: React.MouseEvent) => {
@@ -852,6 +900,8 @@ export default function App() {
   }, []);
 
   return (
+    <>
+    {splash && <Launch onDone={() => { (window as unknown as { __zymonoSplashDone?: boolean }).__zymonoSplashDone = true; setSplash(false); }} />}
     <div className="app">
       <ResizeHandles />
       {toast && (
@@ -920,6 +970,14 @@ export default function App() {
           onCheckUpdates={runUpdateCheck}
           onInstallUpdate={runInstallUpdate}
           updateBusy={updateBusy}
+        />
+      )}
+      {proxyOpen && (
+        <ProxyPanel
+          gameDir={selected?.game_dir ?? null}
+          defaultModPath={dllPath}
+          onClose={() => setProxyOpen(false)}
+          onToast={notify}
         />
       )}
       {savePop && (
@@ -1108,6 +1166,7 @@ export default function App() {
                 method={injectMethod}
                 onMethodChange={setInjectMethod}
                 onToast={notify}
+                showMethodPicker={!native}
               />
             )}
             <InjectForm
@@ -1133,6 +1192,13 @@ export default function App() {
               dllRefs={dllRefs}
               recent={recentDlls}
               onRecentChange={setRecentDlls}
+              native={native}
+              onNativeChange={setNative}
+              nativeMode={nativeMode}
+              onNativeModeChange={setNativeMode}
+              onOpenProxy={() => setProxyOpen(true)}
+              dllKind={dllKind}
+              autoRegister={autoRegister}
             />
           </div>
             <div className={`config-fade${canScrollDown ? " show" : ""}`} />
@@ -1160,9 +1226,9 @@ export default function App() {
                 </span>
                 <span className="as-entry">
                   {selected
-                    ? `${selected.name} · ${namespace ? namespace + "." : ""}${className || "Class"}.${
-                        method || "Method"
-                      }`
+                    ? native
+                      ? `${selected.name} · native ${nativeMode === "manual_map" ? "manual map" : "LoadLibrary"}`
+                      : `${selected.name} · ${namespace ? namespace + "." : ""}${className || "Class"}.${method || "Method"}`
                     : "No target selected"}
                 </span>
               </div>
@@ -1220,5 +1286,6 @@ export default function App() {
         </div>
       </div>
     </div>
+    </>
   );
 }

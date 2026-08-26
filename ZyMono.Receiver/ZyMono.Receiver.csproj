@@ -8,7 +8,7 @@
     <Authors>TheHolyOneZ</Authors>
     <Description>In-game pipe-injection receiver for ZyMono — loads a managed assembly on the Unity main thread over a named pipe.</Description>
     <Copyright>Copyright © 2026 TheHolyOneZ — GPL-3.0-only</Copyright>
-    <Version>0.2.0</Version>
+    <Version>0.3.0</Version>
     <LangVersion>latest</LangVersion>
     <Configuration Condition=" '$(Configuration)' == '' ">Release</Configuration>
     <!-- BepInEx plugins are plain class libraries; no runtime output needed. -->

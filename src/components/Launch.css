@@ -1,0 +1,885 @@
+
+
+.lx {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #03050a;
+  cursor: pointer;
+  transition: opacity 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.lx-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.lx-void {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    900px 620px at 50% 42%,
+    rgba(38, 120, 225, 0.16),
+    rgba(10, 26, 56, 0.06) 45%,
+    transparent 70%
+  );
+}
+
+.lx-void::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(125% 95% at 50% 44%, transparent 34%, rgba(0, 0, 0, 0.62) 100%);
+}
+
+.lx-aurora {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 150vmax;
+  height: 150vmax;
+  margin: -75vmax 0 0 -75vmax;
+  pointer-events: none;
+  opacity: 0;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    rgba(47, 143, 255, 0.07) 40deg,
+    transparent 110deg,
+    transparent 220deg,
+    rgba(87, 214, 255, 0.055) 270deg,
+    transparent 340deg
+  );
+  filter: blur(60px);
+  animation:
+    lx-fade 1.6s 0.15s ease-out forwards,
+    lx-spin 26s linear infinite;
+}
+@keyframes lx-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.lx-grain {
+  position: absolute;
+  inset: -50%;
+  pointer-events: none;
+  opacity: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation:
+    lx-grain-in 1.4s 0.3s ease-out forwards,
+    lx-grain-drift 0.5s steps(3) infinite;
+}
+@keyframes lx-grain-in {
+  to {
+    opacity: 0.05;
+  }
+}
+/* A hair of movement keeps the grain alive instead of looking like dirt
+   baked onto the screen. */
+@keyframes lx-grain-drift {
+  0% {
+    transform: translate(0, 0);
+  }
+  33% {
+    transform: translate(-1.5%, 1%);
+  }
+  66% {
+    transform: translate(1%, -1.5%);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+
+.lx-motes {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.lx-motes span {
+  position: absolute;
+  border-radius: 999px;
+  background: #9fe0ff;
+  opacity: 0;
+  box-shadow: 0 0 8px rgba(87, 214, 255, 0.85);
+  animation-name: lx-mote;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+@keyframes lx-mote {
+  0% {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  35% {
+    opacity: 0.55;
+  }
+  70% {
+    opacity: 0.3;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-42px);
+  }
+}
+
+/* ─────────────────────────────  stage  ───────────────────────────────── */
+
+/* Act I/II live in here. The camera push is one transform on this single
+   element, so nothing inside has to know the move is happening.
+
+   grid-area pins the scene and the title card to the SAME grid cell, so
+   both sit dead centre and overlap — the card occupies the space the icon
+   vacates rather than being laid out beneath it. */
+.lx-scene,
+.lx-card {
+  grid-area: 1 / 1;
+}
+.lx-scene {
+  position: relative;
+  opacity: 0;
+  transform-origin: center;
+  animation:
+    lx-fade 0.5s 0.05s ease-out forwards,
+    lx-push 0.8s 2.24s cubic-bezier(0.5, 0, 0.78, 0.3) forwards;
+}
+/* Recoil, then ram. The kickback at 12% is the injection throwing the
+   camera back before it drives forward — anticipation is what makes the
+   push read as force rather than as a zoom. */
+@keyframes lx-push {
+  0% {
+    transform: scale(1);
+    filter: blur(0);
+  }
+  12% {
+    transform: scale(0.93);
+    filter: blur(0);
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    transform: scale(7.2);
+    filter: blur(11px);
+    opacity: 0;
+  }
+}
+
+.lx-icon {
+  position: relative;
+  width: min(272px, 46vmin);
+  height: min(272px, 46vmin);
+  /* Settles out of a slight 3D tilt so the tile reads as a physical object
+     rather than a flat rectangle. */
+  perspective: 900px;
+  animation: lx-icon-in 1.15s 0.1s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes lx-icon-in {
+  0% {
+    opacity: 0;
+    transform: translateY(26px) scale(0.84) rotateX(16deg) rotateZ(-5deg);
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Bloom sitting behind the tile; it swells on injection. */
+.lx-halo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 172%;
+  height: 172%;
+  margin: -86% 0 0 -86%;
+  border-radius: 999px;
+  pointer-events: none;
+  background:
+    radial-gradient(closest-side, rgba(47, 143, 255, 0.40), transparent 58%),
+    radial-gradient(closest-side, rgba(87, 214, 255, 0.18), transparent 72%);
+  filter: blur(30px);
+  opacity: 0;
+  transform: scale(0.6);
+  animation:
+    lx-halo-in 1.5s 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards,
+    lx-halo-pulse 0.9s 2.10s ease-out;
+}
+@keyframes lx-halo-in {
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes lx-halo-pulse {
+  0% {
+    filter: blur(30px) brightness(1);
+  }
+  22% {
+    filter: blur(38px) brightness(2.1);
+  }
+  100% {
+    filter: blur(30px) brightness(1);
+  }
+}
+
+.lx-svg {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: block;
+  /* Neutral black, not blue. A tinted shadow on a rounded-square tile
+     paints a visible squircle-shaped haze that drifts down behind the
+     wordmark; black reads as depth and leaves the type on clean ground. */
+  filter: drop-shadow(0 18px 34px rgba(0, 0, 0, 0.62)) drop-shadow(0 3px 10px rgba(0, 0, 0, 0.45));
+  overflow: visible;
+}
+
+/* Anamorphic flare across the mark on injection — the beat that makes this
+   feel like a title card rather than an icon being shown. */
+.lx-streak {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 620%;
+  height: 3px;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(120, 220, 255, 0.5) 26%,
+    rgba(214, 246, 255, 0.95) 50%,
+    rgba(120, 220, 255, 0.5) 74%,
+    transparent 100%
+  );
+  filter: blur(1.5px);
+  transform: translate(-50%, -50%) scaleX(0) scaleY(0.35);
+  animation: lx-streak 1.2s 2.10s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes lx-streak {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scaleX(0) scaleY(0.35);
+  }
+  14% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scaleX(1) scaleY(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scaleX(1.12) scaleY(0.25);
+  }
+}
+
+/* ──────────────────────────────  tile  ───────────────────────────────── */
+
+.lx-tile-glow {
+  opacity: 0;
+  animation: lx-fade 1.1s 0.45s ease-out forwards;
+}
+
+/* Rim traces the full perimeter, then stays. */
+.lx-rim {
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  animation: lx-draw 1.05s 0.15s cubic-bezier(0.5, 0, 0.2, 1) forwards;
+}
+
+/* ────────────────────────────  the mark  ─────────────────────────────── */
+
+/* The whole mark takes the injection hit: a hard brightness spike, then a
+   small overshoot in scale as it settles. */
+.lx-mark {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: lx-mark-hit 0.85s 2.10s cubic-bezier(0.2, 0, 0.2, 1);
+}
+@keyframes lx-mark-hit {
+  0% {
+    filter: brightness(1);
+    transform: scale(1);
+  }
+  14% {
+    filter: brightness(2.3) saturate(1.3);
+    transform: scale(1.045);
+  }
+  46% {
+    filter: brightness(1.15);
+    transform: scale(0.995);
+  }
+  100% {
+    filter: brightness(1);
+    transform: scale(1);
+  }
+}
+
+/* ── Z ── */
+
+/* One continuous stroke sweep draws the whole letterform. */
+.lx-z-line {
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  animation: lx-draw 0.88s 0.42s cubic-bezier(0.45, 0, 0.25, 1) forwards;
+}
+
+/* A short hot dash pinned to the drawing front — the "pen tip". Same
+   timing as the line above, so it always sits exactly where the stroke is
+   being laid down, then fades once the letter closes. */
+.lx-z-spark {
+  stroke-dasharray: 2.5 97.5;
+  stroke-dashoffset: 100;
+  opacity: 0;
+  filter: drop-shadow(0 0 7px #7fe8ff);
+  animation:
+    lx-draw 0.88s 0.42s cubic-bezier(0.45, 0, 0.25, 1) forwards,
+    lx-spark-life 0.98s 0.38s ease-out forwards;
+}
+@keyframes lx-spark-life {
+  0% {
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  82% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Glass floods in behind the outline once it has closed. */
+.lx-z-fill {
+  opacity: 0;
+  animation: lx-fade 0.5s 1.18s ease-out forwards;
+}
+
+/* ── syringe ── */
+
+/* Every part draws its own outline on, then its fill blooms in behind it.
+   Staggered needle → cap so the instrument assembles along its own axis. */
+.lx-part,
+.lx-rod,
+.lx-cap {
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  fill-opacity: 0;
+  animation:
+    lx-draw 0.42s cubic-bezier(0.35, 0, 0.2, 1) forwards,
+    lx-fill-in 0.34s ease-out forwards;
+}
+.lx-s1 {
+  animation-delay: 1.05s, 1.28s;
+}
+.lx-s2 {
+  animation-delay: 1.18s, 1.40s;
+}
+.lx-s3 {
+  animation-delay: 1.28s, 1.52s;
+}
+.lx-s5 {
+  animation-delay: 1.48s, 1.66s;
+}
+.lx-rod {
+  animation-delay: 1.56s, 1.72s;
+}
+.lx-cap {
+  animation-delay: 1.63s, 1.78s;
+}
+@keyframes lx-fill-in {
+  to {
+    fill-opacity: 1;
+  }
+}
+
+/* Ticks are hairlines — no fill, just a quick fade. */
+.lx-s4 {
+  opacity: 0;
+  stroke-dasharray: none;
+  stroke-dashoffset: 0;
+  animation: lx-fade 0.3s 1.62s ease-out forwards;
+}
+
+/* Fluid sits in the barrel, then drains forward as the plunger drives. */
+.lx-fluid {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: left center;
+  animation:
+    lx-fade 0.35s 1.72s ease-out forwards,
+    lx-drain 0.38s 1.92s cubic-bezier(0.55, 0, 0.35, 1) forwards;
+}
+@keyframes lx-drain {
+  to {
+    transform: scaleX(0.3);
+  }
+}
+
+/* Plunger seal inside the barrel, and the rod + thumb pad outside it, all
+   travel the same −100 local units so the assembly stays rigid. */
+.lx-plunger {
+  opacity: 0;
+  animation:
+    lx-fade 0.3s 1.72s ease-out forwards,
+    lx-plunge 0.38s 1.92s cubic-bezier(0.55, 0, 0.35, 1) forwards;
+}
+.lx-rod {
+  animation:
+    lx-draw 0.42s 1.56s cubic-bezier(0.35, 0, 0.2, 1) forwards,
+    lx-fill-in 0.34s 1.72s ease-out forwards,
+    lx-plunge 0.4s 2.15s cubic-bezier(0.55, 0, 0.35, 1) forwards;
+}
+.lx-cap {
+  animation:
+    lx-draw 0.42s 1.63s cubic-bezier(0.35, 0, 0.2, 1) forwards,
+    lx-fill-in 0.34s 1.78s ease-out forwards,
+    lx-plunge 0.4s 2.15s cubic-bezier(0.55, 0, 0.35, 1) forwards;
+}
+@keyframes lx-plunge {
+  to {
+    transform: translateX(-100px);
+  }
+}
+
+/* ─────────────────────────  injection effects  ───────────────────────── */
+
+/* Light blows out of the needle tip and floods the tile. */
+.lx-flash {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scale(0.15);
+  animation: lx-flash 0.85s 2.10s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes lx-flash {
+  0% {
+    opacity: 0;
+    transform: scale(0.15);
+  }
+  16% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.4);
+  }
+}
+
+/* Two shockwaves, clipped by the squircle so the energy stays inside the
+   icon rather than spilling onto the background. */
+.lx-wave {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scale(0.2);
+  animation: lx-wave 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.lx-w1 {
+  animation-delay: 2.12s;
+}
+.lx-w2 {
+  animation-delay: 2.24s;
+}
+@keyframes lx-wave {
+  0% {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+  12% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(7);
+  }
+}
+
+/* Final polish pass — a specular band wipes across the finished tile. */
+.lx-gloss {
+  opacity: 0;
+  transform-box: view-box;
+  animation: lx-gloss 0.8s 1.68s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+@keyframes lx-gloss {
+  0% {
+    opacity: 0;
+    transform: translateX(0);
+  }
+  18% {
+    opacity: 1;
+  }
+  82% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(920px);
+  }
+}
+
+/* ═══════════════  act II — breaking through the surface  ═══════════════ */
+
+/* The mark's interior. Fades up over the scene while the camera rams
+   forward, so the tile hands off to full-bleed dark glass instead of its
+   edges tearing past the frame — that hand-off is what sells "we went
+   inside it" rather than "it got big". */
+.lx-tunnel {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(circle at 50% 46%, #101d33 0%, #070d19 46%, #03060d 100%);
+  animation: lx-fade 0.72s 2.40s ease-in forwards;
+}
+
+.lx-punch {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(
+    circle at 50% 46%,
+    rgba(206, 242, 255, 0.92),
+    rgba(70, 172, 255, 0.28) 34%,
+    transparent 68%
+  );
+  animation: lx-punch 0.55s 2.70s ease-out forwards;
+}
+@keyframes lx-punch {
+  0% {
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.lx-wm {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(112vmin, 900px);
+  height: min(112vmin, 900px);
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(1.55);
+  animation: lx-wm-in 1.9s 2.82s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes lx-wm-in {
+  to {
+    opacity: 0.09;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.lx-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+
+.lx-word {
+  position: relative;
+  padding: 0 0.12em;
+}
+
+.lx-word-text {
+  display: inline-block;
+  font-family: "Space Grotesk", "Inter", system-ui, sans-serif;
+  font-size: clamp(34px, 5vw, 58px);
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  background-image:
+    linear-gradient(100deg, transparent 42%, rgba(255, 255, 255, 0.92) 50%, transparent 58%),
+    linear-gradient(112deg, #ffffff 6%, #a9e6ff 46%, #3fc6ff 78%, #8ce9ff 100%);
+  background-size:
+    300% 100%,
+    100% 100%;
+  background-position:
+    -140% 0,
+    0 0;
+  background-repeat: no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 14px rgba(87, 214, 255, 0.22));
+  opacity: 0;
+  animation:
+    lx-word-fly 0.62s 2.92s cubic-bezier(0.14, 0.86, 0.24, 1) forwards,
+    lx-word-shine 0.95s 3.44s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+@keyframes lx-word-fly {
+  0% {
+    opacity: 0;
+    letter-spacing: 0.62em;
+    transform: scale(2.5);
+    filter: blur(13px) drop-shadow(0 2px 14px rgba(87, 214, 255, 0.22));
+  }
+  34% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    letter-spacing: 0.16em;
+    transform: scale(1);
+    filter: blur(0) drop-shadow(0 2px 14px rgba(87, 214, 255, 0.22));
+  }
+}
+@keyframes lx-word-shine {
+  to {
+    background-position:
+      240% 0,
+      0 0;
+  }
+}
+
+.lx-word-flare {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 460%;
+  height: 2px;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(140, 225, 255, 0.55) 28%,
+    rgba(224, 248, 255, 0.95) 50%,
+    rgba(140, 225, 255, 0.55) 72%,
+    transparent
+  );
+  filter: blur(1px);
+  transform: translate(-50%, -50%) scaleX(0);
+  animation: lx-word-flare 0.8s 3.38s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes lx-word-flare {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scaleX(0.1);
+  }
+  16% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scaleX(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scaleX(1.1);
+  }
+}
+
+.lx-sub {
+  margin: 0.85rem 0 0;
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: rgba(190, 214, 245, 0.5);
+  opacity: 0;
+  transform: translateY(6px);
+  animation: lx-rise 0.55s 3.46s ease-out forwards;
+}
+@keyframes lx-rise {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.lx-div {
+  position: relative;
+  width: min(228px, 46vw);
+  height: 6px;
+  margin-top: 1.15rem;
+}
+.lx-div-line {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(126, 190, 255, 0.5) 24%,
+    rgba(126, 190, 255, 0.5) 76%,
+    transparent
+  );
+  transform: scaleX(0);
+  animation: lx-div-draw 0.6s 3.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes lx-div-draw {
+  to {
+    transform: scaleX(1);
+  }
+}
+.lx-div-gem {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  margin: -3px 0 0 -3px;
+  background: #8ce4ff;
+  box-shadow: 0 0 9px rgba(87, 214, 255, 0.95);
+  opacity: 0;
+  transform: rotate(45deg) scale(0.2);
+  animation: lx-gem 0.5s 3.72s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes lx-gem {
+  to {
+    opacity: 1;
+    transform: rotate(45deg) scale(1);
+  }
+}
+
+.lx-brand {
+  display: flex;
+  align-items: baseline;
+  gap: 0.62em;
+  margin: 1.05rem 0 0;
+  font-family: "Inter", system-ui, sans-serif;
+  text-transform: uppercase;
+  opacity: 0;
+  animation: lx-brand-fly 0.62s 3.62s cubic-bezier(0.14, 0.86, 0.24, 1) forwards;
+}
+@keyframes lx-brand-fly {
+  0% {
+    opacity: 0;
+    transform: translateY(26px) scale(1.3);
+    filter: blur(8px);
+  }
+  40% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+.lx-brand-by {
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.3em;
+  color: rgba(138, 165, 198, 0.5);
+}
+
+.lx-brand-name {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  background: linear-gradient(100deg, #ffffff 0%, #9fe4ff 42%, #45c9ff 74%, #a9efff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: lx-brand-glow 2.6s 4.24s ease-in-out infinite;
+}
+@keyframes lx-brand-glow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 6px rgba(87, 214, 255, 0.35));
+  }
+  50% {
+    filter: drop-shadow(0 0 14px rgba(87, 214, 255, 0.8));
+  }
+}
+
+.lx-skip {
+  position: absolute;
+  left: 50%;
+  bottom: clamp(26px, 6vh, 58px);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: #9dc4ea;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+
+  transform: translateX(-50%);
+  animation:
+    lx-skip-in 0.75s 1.1s ease-out forwards,
+    lx-skip-pulse 2.3s 1.85s ease-in-out infinite;
+}
+@keyframes lx-skip-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(8px);
+  }
+  to {
+    opacity: 0.46;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+@keyframes lx-skip-pulse {
+  0%,
+  100% {
+    opacity: 0.42;
+    transform: translateX(-50%) scale(1);
+  }
+  50% {
+    opacity: 0.92;
+    transform: translateX(-50%) scale(1.025);
+  }
+}
+
+.lx-skip i {
+  flex: none;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: #57d6ff;
+  box-shadow: 0 0 9px rgba(87, 214, 255, 0.9);
+  animation: lx-skip-pip 2.3s 1.85s ease-in-out infinite;
+}
+@keyframes lx-skip-pip {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 6px rgba(87, 214, 255, 0.55);
+  }
+  50% {
+    transform: scale(1.55);
+    box-shadow: 0 0 14px rgba(87, 214, 255, 1);
+  }
+}
+
+@keyframes lx-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes lx-fade {
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lx {
+    display: none;
+  }
+}

@@ -19,6 +19,8 @@ interface Props {
   method: InjectMethod;
   onMethodChange: (m: InjectMethod) => void;
   onToast: (kind: "ok" | "err" | "info", msg: string) => void;
+
+  showMethodPicker?: boolean;
 }
 
 const METHODS: { key: InjectMethod; label: string; icon: JSX.Element; hint: string }[] = [
@@ -27,7 +29,7 @@ const METHODS: { key: InjectMethod; label: string; icon: JSX.Element; hint: stri
   { key: "pipe", label: "Pipe", icon: <Cable size={13} />, hint: "Hand the load to the in-game receiver plugin over a named pipe. Safe with BepInEx." },
 ];
 
-export default function RouterPanel({ selected, method, onMethodChange, onToast }: Props) {
+export default function RouterPanel({ selected, method, onMethodChange, onToast, showMethodPicker = true }: Props) {
   const [probe, setProbe] = useState<RouterProbe | null>(null);
   const [loading, setLoading] = useState(false);
   const [installing, setInstalling] = useState(false);
@@ -35,7 +37,6 @@ export default function RouterPanel({ selected, method, onMethodChange, onToast 
 
   const runProbe = useCallback(async () => {
     setLoading(true);
-    setInstallTarget(null);
     try {
       const p = await invoke<RouterProbe>("router_probe", { pid: selected.pid });
       setProbe(p);
@@ -45,7 +46,7 @@ export default function RouterPanel({ selected, method, onMethodChange, onToast 
     } finally {
       setLoading(false);
     }
-  }, [selected.pid, onToast]);
+  }, [selected.pid]);
 
   useEffect(() => {
     runProbe();
@@ -82,7 +83,8 @@ export default function RouterPanel({ selected, method, onMethodChange, onToast 
     }
   };
 
-  const liveNoReceiver = !!probe && probe.bepinex_live && !probe.receiver;
+  const liveNoReceiver = !!probe && !!probe.loader_name && !probe.receiver;
+  const liveWithReceiver = !!probe && !!probe.loader_name && !!probe.receiver;
 
   const statusPills = () => {
     if (!probe) {
@@ -92,13 +94,14 @@ export default function RouterPanel({ selected, method, onMethodChange, onToast 
         </span>
       );
     }
+    const loader = probe.loader_name;
     return (
       <>
-        <span className={`rs-badge ${probe.bepinex_live ? "warn" : "ok"}`}>
-          {probe.bepinex_live ? <Boxes size={12} /> : <ShieldCheck size={12} />}
-          BepInEx {probe.bepinex_live ? "live" : "not loaded"}
+        <span className={`rs-badge ${loader ? "warn" : "ok"}`}>
+          {loader ? <Boxes size={12} /> : <ShieldCheck size={12} />}
+          {loader ? `${loader} live` : "no mod loader"}
         </span>
-        {probe.bepinex_live &&
+        {!!loader &&
           (probe.receiver ? (
             <span className="rs-badge ok">
               <ShieldCheck size={12} /> receiver v{probe.receiver.version}
@@ -120,33 +123,80 @@ export default function RouterPanel({ selected, method, onMethodChange, onToast 
           <InfoTip text="ZyMono decides direct vs pipe from what's actually LOADED in the running game — not from folders on disk. If BepInEx isn't live, direct injection works even for a Harmony-patching mod." />
         </span>
         <div className="rs-badges">{statusPills()}</div>
-        <div className="router-methods">
-          {METHODS.map((m) => (
-            <button
-              key={m.key}
-              className={`router-method${method === m.key ? " active" : ""}`}
-              onClick={() => onMethodChange(m.key)}
-              title={m.hint}
-            >
-              {m.icon}
-              {m.label}
-            </button>
-          ))}
-        </div>
+        {showMethodPicker && (
+          <div className="router-methods">
+            {METHODS.map((m) => (
+              <button
+                key={m.key}
+                className={`router-method${method === m.key ? " active" : ""}`}
+                onClick={() => onMethodChange(m.key)}
+                title={m.hint}
+              >
+                {m.icon}
+                {m.label}
+              </button>
+            ))}
+          </div>
+        )}
         <button className="rs-refresh" onClick={runProbe} disabled={loading} title="Re-check the target">
           <RefreshCw size={13} className={loading ? "spin" : ""} />
         </button>
       </div>
 
-      {probe && <div className="rs-reason">{probe.reason}</div>}
+      {probe && (
+        <div className="rs-reason">
+          {showMethodPicker
+            ? probe.reason
+            : probe.loader_name
+            ? `${probe.loader_name} is live in the game, but a native (C++) DLL is selected — native mods bypass the loader and go through Windows' own loader directly. Pipe/Direct don't apply here.`
+            : "A native (C++) DLL is selected — it loads via Windows' own loader. Pipe/Direct don't apply here."}
+        </div>
+      )}
 
-      {liveNoReceiver && method === "auto" && (
+      {liveWithReceiver && installTarget && (
         <div className="router-choice">
           <div className="router-choice-msg">
             <AlertTriangle size={14} />
             <span>
-              BepInEx is running but no receiver answered. Direct injection into a BepInEx-modded
-              game can crash it — choose how to proceed:
+              Overwrite the live receiver with the freshly-built one? The game keeps the current
+              copy locked in memory — you'll need to restart the game after the copy for the new
+              build to actually load.
+            </span>
+          </div>
+          <div className="router-install-confirm">
+            <div className="ric-path">
+              <span className="ric-label">Overwrite</span>
+              <code title={installTarget}>{installTarget}</code>
+            </div>
+            <div className="router-choice-actions">
+              <button className="inject-btn sm" onClick={confirmInstall} disabled={installing}>
+                {installing ? <Loader2 size={14} className="spin" /> : <Download size={14} />}
+                Confirm update
+              </button>
+              <button className="text-btn" onClick={() => setInstallTarget(null)} disabled={installing}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {liveWithReceiver && !installTarget && (
+        <div className="router-choice-actions" style={{ display: "flex", justifyContent: "flex-end", padding: "6px 12px 8px" }}>
+          <button className="text-btn" onClick={previewInstall} disabled={installing} title="Push a freshly-built receiver DLL over the current one">
+            {installing ? <Loader2 size={13} className="spin" /> : <Download size={13} />}
+            Update receiver…
+          </button>
+        </div>
+      )}
+
+      {liveNoReceiver && (
+        <div className="router-choice">
+          <div className="router-choice-msg">
+            <AlertTriangle size={14} />
+            <span>
+              {probe?.loader_name} is running but no ZyMono receiver answered. Install the matching
+              receiver so pipe route and MelonMod / BepInPlugin auto-registration work:
             </span>
           </div>
           {installTarget ? (

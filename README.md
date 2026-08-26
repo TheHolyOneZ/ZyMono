@@ -4,9 +4,11 @@
 
 <h1>ZyMono</h1>
 
-<h3>A modern, Windows-native&nbsp;·&nbsp;<em>Mono / Unity</em>&nbsp;·&nbsp;game injector</h3>
+<h3>A modern, Windows-native&nbsp;·&nbsp;<em>Unity</em>&nbsp;·&nbsp;<em>Mono &amp; IL2CPP</em>&nbsp;·&nbsp;game injector</h3>
 
-<p><b>Load your own C# mod into a Unity game — and let ZyMono choose the safe way to do it, from what's actually running inside the game.</b></p>
+<p><b>Load your own C# or C++ mod into a Unity game — Mono or IL2CPP — and let ZyMono pick the right route from what's actually running inside the game.</b></p>
+
+<p><i>Direct managed load · BepInEx / MelonLoader pipe with in-game receivers · Native <code>LoadLibrary</code> · In-memory manual map · Proxy preloader · MelonMod &amp; BepInPlugin auto-registration.</i></p>
 
 <p>
 <a href="https://github.com/TheHolyOneZ/ZyMono"><img src="https://img.shields.io/badge/platform-Windows%2010%20%2F%2011-0078D6?logo=windows&logoColor=white" alt="Windows 10/11" /></a>
@@ -17,7 +19,7 @@
 </p>
 
 <p>
-<a href="https://zlogic.eu/zymono/"><img src="https://img.shields.io/badge/download-v0.2.0%20%C2%B7%20Windows%20x64-2f8fff?style=for-the-badge&logo=windows&logoColor=white" alt="Download ZyMono for Windows" /></a>
+<a href="https://zlogic.eu/zymono/"><img src="https://img.shields.io/badge/download-v0.3.0%20%C2%B7%20Windows%20x64-2f8fff?style=for-the-badge&logo=windows&logoColor=white" alt="Download ZyMono for Windows" /></a>
 </p>
 
 <p>
@@ -38,7 +40,7 @@
 
 <div align="center">
 
-<a href="#-whats-new-in-020">What's new</a> ·
+<a href="#-whats-new-in-030">What's new</a> ·
 <a href="#-what-is-zymono">What is it</a> ·
 <a href="#-feature-overview">Features</a> ·
 <a href="#-how-injection-works">How it works</a> ·
@@ -49,6 +51,54 @@
 <a href="#-faq">FAQ</a>
 
 </div>
+
+---
+
+## 🆕 What's new in 0.3.0
+
+*The IL2CPP release. ZyMono is no longer a Mono-only injector — it now speaks native C++, IL2CPP, BepInEx-IL2CPP, and MelonLoader too.*
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+**🎯 IL2CPP games — first-class support**
+IL2CPP games are no longer marked "not injectable". ZyMono now knows there are two mod worlds inside every Unity game — **managed C#** and **native C++** — and routes to the right one based on what you actually picked. Select an IL2CPP game, pick a `.dll`, ZyMono inspects it and picks the route for you.
+
+**🧬 Native (C++) mod loading**
+Three brand-new routes for native mods that no managed injector can touch:
+
+- **LoadLibrary** — the classic on-demand path. The game itself calls `LoadLibraryW` on your DLL; Windows' own loader runs `DllMain(DLL_PROCESS_ATTACH)` and you're in.
+- **Manual map** — an in-memory PE loader. The DLL is copied into the game as a memory buffer, sections copied, relocations applied, imports resolved, `DllMain` fired — no file on disk needs to remain readable. The native analog of the direct Mono route.
+- **Proxy preloader** — drops a signed-clean `winhttp.dll` / `version.dll` stub next to the game exe so your mod auto-loads at next launch. The exact mechanism BepInEx and MelonLoader use themselves — now available for your own native mods.
+
+**🧠 DLL-aware routing**
+The picker now inspects every DLL you point it at: managed vs native, x86 / x64 / AnyCPU, and — for managed DLLs — whether it carries `[BepInPlugin]` or `[MelonInfo]`. The route panel reshapes around what you picked. A C++ DLL hides the pipe route entirely. A C# DLL hides the native tabs. A wrong-bitness DLL says so up front.
+
+</td>
+<td width="50%" valign="top">
+
+**🎭 Two new pipe receivers — BepInEx-IL2CPP & MelonLoader**
+The pipe route now covers all three modern Unity mod-loader worlds:
+
+- `ZyMonoReceiver.dll` — BepInEx classic (Mono) — as before
+- `ZyMonoReceiverIL2CPP.dll` — **new** — BepInEx-IL2CPP, `BasePlugin` + `Il2CppInterop`, class-injected dispatcher
+- `ZyMonoMelonReceiver.dll` — **new** — MelonLoader, `MelonMod` + `OnUpdate`-pumped dispatcher
+
+ZyMono detects which loader is live in the game and installs — or **updates in place** — the matching receiver with one click.
+
+**⚡ MelonMod / BepInPlugin auto-registration**
+Drop a MelonMod DLL onto ZyMono and there's **nothing to fill in**. ZyMono spots the `[MelonInfo]` attribute, the entry-point column disappears, and the receiver hands the assembly to `MelonAssembly.LoadMelonAssembly` — MelonLoader runs the full startup pipeline (Register → OnInitializeMelon → OnLateInitializeMelon → OnUpdate hookup) exactly as if the file had been in `Mods/` at launch. The same lane exists for `[BepInPlugin]` via `Chainloader`.
+
+**🔀 Loader detection: BepInEx vs MelonLoader vs none**
+The status pill now reads *"MelonLoader live"* / *"BepInEx live"* / *"no mod loader"* correctly — the old "BepInEx live" false positive on MelonLoader games is gone. Uses loader-specific module signatures plus the `winhttp.dll` (BepInEx) vs `version.dll` (MelonLoader) proxy heuristic.
+
+**🩹 UX cleanup**
+Direct/Pipe/Auto is hidden when a native DLL is picked (pipe doesn't apply). The "no managed methods found" warning is gone in native mode. Install/Update prompt no longer auto-dismisses after 2 s. **Update receiver…** button when the receiver is already live so you can push a fresh build without hunting through folders. The stale "Uses Harmony — if BepInEx is live" hint is now loader-agnostic.
+
+</td>
+</tr>
+</table>
 
 ---
 
@@ -98,13 +148,21 @@ Maximize the window and the config panel reflows: one column → **two** at 780 
 
 ## 🧩 What is ZyMono?
 
-**ZyMono** is a clean, powerful desktop app for injecting a managed **C# DLL** into a running **Mono-based Unity game** on Windows. You point it at a game, choose your mod's entry point (`Namespace.Class.Method`), and press **Inject** — ZyMono loads your DLL into the game's Mono runtime, calls your method, and tells you exactly what happened.
+**ZyMono** is a clean, powerful desktop app for injecting your mod into a running Unity game on Windows — whether that game runs **Mono** or **IL2CPP**, and whether your mod is written in **C#** or **C++**. You point it at a game, pick your mod DLL, and press **Inject**. ZyMono classifies the DLL, sees what's running inside the game, chooses the correct one of **six** injection routes, and tells you exactly what happened.
 
-What sets ZyMono apart is **how it decides to inject**. Many modern games already run a mod loader such as **BepInEx**, and many mods apply **Harmony** patches. Loading blindly in that situation can clash with what the loader is doing. ZyMono looks at **what is genuinely live inside the game right now** and routes your DLL the safe way — automatically, and with **confirmation** that it actually loaded, instead of firing blindly.
+Every path is real and lives in-repo:
 
-It's built for people who mod the games they own, and it's meant to feel premium: a fast native UI, saved profiles, auto-inject on launch, entry-point validation, a **global inject hotkey** you can fire without leaving the game, an optional **Eject** route that reloads a mod without restarting, and a live console that shows every step.
+- **Managed C# into Mono** — direct in-memory `Assembly.Load` via the game's own Mono runtime.
+- **Managed C# via BepInEx classic** — pipe route to `ZyMonoReceiver.dll` inside the game.
+- **Managed C# via BepInEx-IL2CPP** — pipe route to `ZyMonoReceiverIL2CPP.dll`, plugin auto-registered through `IL2CPPChainloader`.
+- **Managed C# via MelonLoader** — pipe route to `ZyMonoMelonReceiver.dll`, mod auto-registered through `MelonAssembly.LoadMelonAssembly`, `OnInitializeMelon` fires exactly as if the file had been in `Mods/` at launch.
+- **Native C++ on-demand** — `LoadLibraryW` + `CreateRemoteThread` into any running game.
+- **Native C++ in-memory (manual map)** — full PE loader (sections, base relocations, imports, DllMain) — file never leaves your machine.
+- **Native C++ preloader** — build-time-generated `winhttp.dll` / `version.dll` proxy stub for auto-load at next launch.
 
-> **In one line:** *ZyMono is a smart, confirming Mono injector — it detects whether a mod loader is actually running and picks Direct or Pipe injection for you.*
+What sets ZyMono apart is that it **doesn't guess**. It inspects the picked DLL (managed vs native, `[BepInPlugin]` vs `[MelonInfo]`, x86 / x64 / AnyCPU) *and* the running process (Mono vs IL2CPP, BepInEx vs MelonLoader vs nothing, is our receiver alive?) — then reshapes its own UI so you can only pick routes that make sense for what you actually have.
+
+> **In one line:** *ZyMono is a smart Unity injector that speaks C# and C++, Mono and IL2CPP, BepInEx and MelonLoader — and picks the right lane, confirmed live, so you never fire blindly.*
 
 ---
 
@@ -115,11 +173,11 @@ It's built for people who mod the games they own, and it's meant to feel premium
 <td width="33%" valign="top">
 
 ### 🎯 Targets
-- Auto-refreshing list of running Mono/Unity games
+- Auto-refreshing list of running Mono / IL2CPP Unity games
 - **Search / filter** box (<kbd>Ctrl</kbd>+<kbd>F</kbd>) — type `Raft`, get Raft.exe
-- **Mono vs IL2CPP** classification (IL2CPP marked non-injectable)
-- Runtime flavor (`mono` / `mono-2.0-bdwgc`), **x86/x64**, thread count
-- Badges: architecture, **BepInEx-live**, duplicate PID, suspect
+- **Mono vs IL2CPP** classification — both are injectable, ZyMono picks the route
+- Runtime flavor (`mono` / `mono-2.0-bdwgc` / `il2cpp`), **x86/x64**, thread count
+- Loader badges: **BepInEx live**, **MelonLoader live**, receiver status
 - Selection **survives a game restart**; clears when the game closes
 - Right-click → detail card, copy PID / path, open `Player.log`
 - Reads Steam **AppID** from `steam_appid.txt`
@@ -128,51 +186,52 @@ It's built for people who mod the games they own, and it's meant to feel premium
 <td width="33%" valign="top">
 
 ### 🧠 Smart routing
-- Decides from the **live process**, not folders on disk
-- Detects if **BepInEx is actually mapped** into the game
-- **Pings** the in-game receiver (health-check + version)
-- **Auto** picks Direct or Pipe — or force either
-- Router panel with liveness badge, receiver status, re-check, and a plain-English reason
+- Decides from the **live process** *and* the picked DLL — not folders on disk
+- Detects **which loader is live**: BepInEx (classic or IL2CPP) or MelonLoader
+- Inspects your DLL: **managed vs native**, x86 / x64 / **AnyCPU**, `[BepInPlugin]`, `[MelonInfo]`
+- **Auto** picks Direct / Pipe / LoadLibrary / Manual Map — or force any
+- Router panel with loader badge, receiver status, one-plain-English reason, `↻` re-probe
 - **Harmony** usage detected from your DLL and flagged
-- Guided **"install receiver + restart"** flow when needed
+- Guided **install / update receiver** flow — picks the correct receiver variant automatically
 
 </td>
 <td width="33%" valign="top">
 
 ### 🔌 Confirmed delivery
-- In-game **receiver plugin** (BepInEx) over a named pipe
-- `PING → HELLO`, `LOAD → ACK` — a real request/response protocol
-- Loads **on the Unity main thread** (Photon/Harmony-safe)
+- **Three** in-game receivers, one shared protocol: BepInEx classic, BepInEx-IL2CPP, MelonLoader
+- `PING → HELLO`, `LOAD → ACK` — request/response with a version handshake
+- Loads **on the Unity main thread** (Photon / Harmony / Il2CppInterop-safe)
+- **MelonMod / BepInPlugin auto-registration** — send an empty entry point and the receiver hands the assembly to `MelonAssembly.LoadMelonAssembly` or the appropriate `Chainloader`
 - **Acknowledges success** or hands back the exact managed exception
-- Not fire-and-forget — you always know the result
-- Receiver **auto-discovery & install** (incl. Thunderstore / r2modman profiles)
+- Receiver **auto-discovery, install, and update-in-place** (incl. Thunderstore / r2modman profiles)
 
 </td>
 </tr>
 <tr>
 <td width="33%" valign="top">
 
-### 💉 Direct injection
-- **In-memory** Mono load — the assembly is never written to disk
-- Resolves the runtime from the live process
-- Full load → invoke on the game's main thread
-- Passes **string arguments** to your entry point
-- Captures the **return value** and any **managed exception** (class + message)
-- **Bounded timeout** so it never hangs
-- Optional pre-inject **delay** (0–5000 ms)
-- **Eject / reload** — calls your unload entry point on the assembly that's *already live*
+### 💉 Six injection routes
+- **Direct** — in-memory Mono load, assembly never written to disk
+- **Pipe** — through the in-game receiver on the Unity main thread
+- **Native LoadLibrary** — game calls `LoadLibraryW` on your C++ DLL, Windows fires `DllMain`
+- **Native Manual Map** — full in-memory PE loader (sections, relocs, imports, DllMain)
+- **Proxy preloader** — writes a `winhttp.dll` / `version.dll` stub next to the game exe for auto-load at next launch
+- **Auto-registration** — MelonMod / BepInPlugin sniffed from the DLL, no entry point required
+- All routes have bounded timeouts, arch validation, pre-inject delay, and clean rejection when the pairing doesn't make sense
 
 </td>
 <td width="33%" valign="top">
 
 ### 🔎 Entry points
-- Reads your DLL's **.NET metadata** (PE → CLI tables)
+- Reads your DLL's **.NET metadata** (PE → CLI tables) for managed mods
 - Browse **Namespace.Class.Method**, grouped and searchable
 - Badges: **static / void / arg-count**; "compatible only" filter
 - Pick a method → auto-fills the fields and argument slots
-- **Live validation:** `✓ Entry point found`, *not found*, or *not static void* — before you inject
+- **Live validation:** `✓ Entry point found`, *not found*, or *not static void*
 - **Paste `Namespace.Class.Method` into any box** and it splits itself
 - Optional **unload entry point** → an **Eject** button appears
+- **Native C++ DLLs**: no entry point to fill — `DllMain` is the entry point, the whole column hides
+- **MelonMod / BepInPlugin DLLs**: attribute detected — entry-point column hides, receiver auto-registers
 
 </td>
 <td width="33%" valign="top">
@@ -243,35 +302,50 @@ A Unity game that uses Mono runs C# internally — the same kind of code your mo
 
 ZyMono supports two ways to do this and **chooses for you**:
 
-### 1 · Direct injection
-If nothing is intercepting the game, ZyMono loads your DLL straight into the game's Mono runtime **from memory** and calls your entry method. Fast and self-contained — nothing else needs to be installed. This is the classic approach and works great for plain games.
+Every Unity game process has **two parallel worlds** inside it:
 
-### 2 · Pipe injection (through the in-game receiver)
-If the game is running a mod loader like **BepInEx** — and especially if your mod applies **Harmony** patches — forcing your DLL in can collide with the loader. So ZyMono ships a tiny **receiver plugin** that lives inside BepInEx. Instead of pushing your DLL in, ZyMono **asks the receiver to load it** over a local named pipe. The receiver loads it **on the game's main thread** (which is what Harmony/Photon expect) and **replies with success — or the exact error**.
+- **The managed world** — C# code running on a .NET runtime (Mono, or a runtime shipped by BepInEx-IL2CPP / MelonLoader on IL2CPP games). This is where mods with `[BepInPlugin]`, `[MelonInfo]`, Harmony patches, and `Namespace.Class.Method` entry points live.
+- **The native world** — machine code running directly on the CPU, alongside the game's compiled C++. This is where mods with `DllMain(DLL_PROCESS_ATTACH)` live, loaded by Windows' own loader.
 
-### The important part: it decides from what's *actually running*
+ZyMono knows about both and picks based on what your **DLL** is and what your **game** is running.
 
-> ZyMono does **not** guess from files on disk. It inspects the **live process** to see whether BepInEx is really loaded, and it **pings** the receiver to see if it answers. Then it routes accordingly.
+### The managed lane — direct or pipe
 
-That's the difference between *"there's a BepInEx folder here somewhere"* and *"BepInEx is running right now in this game"* — and it's what stops mods from being loaded the wrong way.
+- **Direct** — when nothing is intercepting the game, ZyMono loads your C# DLL straight into the game's Mono runtime **from memory** and calls your entry method. Fast and self-contained.
+- **Pipe** — when a mod loader is live (BepInEx classic, BepInEx-IL2CPP, or MelonLoader), forcing a load can collide. So ZyMono ships **three matching receivers**, one per loader, each a tiny plugin that lives inside the loader. Your DLL is streamed over a named pipe, the receiver **loads it on the game's main thread**, and either **acknowledges** or hands back the exact managed exception.
+- **Auto-registration** — if the assembly carries `[MelonInfo]` or `[BepInPlugin]`, no entry point is needed. The receiver hands the assembly to `MelonAssembly.LoadMelonAssembly` / `Chainloader` and the mod runs its full `OnInitializeMelon` / `Load()` lifecycle exactly as it would from `Mods/` or `BepInEx/plugins/` at startup.
+
+### The native lane — LoadLibrary, Manual Map, Proxy
+
+- **LoadLibrary** — the game itself calls `LoadLibraryW` on your C++ DLL (path resolved from the target's own `kernel32` export table so it stays correct injecting into x86 games from x64). Windows fires `DllMain(DLL_PROCESS_ATTACH)` and you're in.
+- **Manual Map** — full in-memory PE loader: parse headers, `VirtualAllocEx`, copy sections, apply base relocations (I386 / AMD64), resolve imports across every module in the target (loading missing ones through the game), invoke `DllMain` via a small remote shellcode. Native analog of the direct Mono route — the DLL never has to remain on disk.
+- **Proxy preloader** — writes a build-time-generated `winhttp.dll` / `version.dll` stub with forwarded exports and a `DllMain` that `LoadLibraryW`s your mod. Drop-in same mechanism BepInEx and MelonLoader use themselves.
+
+### It decides from what's *actually running* — and what you *actually picked*
+
+> ZyMono does **not** guess from files on disk. It inspects the **live process** (Mono vs IL2CPP, which loader is mapped, whether the receiver answers a ping) *and* your **picked DLL** (managed vs native, x86/x64/AnyCPU, `[BepInPlugin]` vs `[MelonInfo]`). Then it reshapes its own UI so only routes that will actually work are available.
 
 ```
-        ┌─────────────────────────────────────────────┐
-        │  Select a live game  →  ZyMono probes it     │
-        └───────────────┬─────────────────────────────┘
-                        │
-        Is BepInEx actually mapped into the process?
-                        │
-        ┌───────────────┴───────────────┐
-        │ NO                             │ YES
-        ▼                                ▼
-  Direct injection            Does the receiver answer a ping?
-  (in-memory load)             ┌──────────────┴──────────────┐
-                               │ YES                         │ NO
-                               ▼                             ▼
-                       Pipe injection              Explain + offer to
-                    (receiver loads it on          install the receiver
-                     the main thread, ACKs)        (or inject directly)
+             ┌──────────────────────────────────────────┐
+             │  Pick a game  +  pick a DLL              │
+             └──────────────────┬───────────────────────┘
+                                │
+                     What kind of DLL is it?
+                                │
+                ┌───────────────┴───────────────┐
+                │ MANAGED (.NET)                │ NATIVE (C++)
+                ▼                               ▼
+     Which loader is live in game?         Which native route?
+     ┌────────────┼────────────┐            ┌───────────┬──────────────┐
+     │ none       │ BepInEx    │ MelonLdr   │ LoadLib   │ Manual Map   │
+     ▼            ▼            ▼            ▼           ▼
+   Direct      Pipe →       Pipe →      OS loader   In-memory PE
+   (Mono)      classic /    MelonMod    fires        loader, DllMain
+               IL2CPP       auto-reg    DllMain      fired remotely
+               receiver
+                                        (Optional: install a winhttp /
+                                         version proxy for auto-load at
+                                         next launch)
 ```
 
 <div align="center">
@@ -290,17 +364,24 @@ ZyMono builds on the well-known **SharpMonoInjector (SMI)** technique and an ear
 
 | Capability | SharpMonoInjector | SMI pipe fork | **ZyMono** |
 |:---|:---:|:---:|:---:|
-| Direct in-memory load | ✅ | ✅ | ✅ |
-| Pipe route through an in-game receiver | ❌ | ✅ | ✅ |
-| Decides direct-vs-pipe from the **live process** | ❌ | ⚠️ from a disk folder | ✅ |
+| Direct in-memory load (managed) | ✅ | ✅ | ✅ |
+| Pipe route through an in-game receiver | ❌ | ✅ *(BepInEx classic only)* | ✅ **3 receivers** (classic · IL2CPP · MelonLoader) |
+| **IL2CPP** game support | ❌ | ❌ | ✅ via native + IL2CPP receivers |
+| **MelonLoader** detection & bridge | ❌ | ❌ | ✅ full pipeline |
+| **Native C++ mod** injection (LoadLibrary) | ❌ | ❌ | ✅ |
+| **In-memory manual map** for native mods | ❌ | ❌ | ✅ |
+| **Proxy preloader** (winhttp / version stub) | ❌ | ❌ | ✅ generated at install time |
+| MelonMod / BepInPlugin **auto-registration** | ❌ | ❌ | ✅ zero entry-point config |
+| Decides route from the **live process** *and* the picked DLL | ❌ | ⚠️ from a disk folder | ✅ |
 | **Confirms** the mod actually loaded | ❌ | ❌ | ✅ ping + ack |
 | Loads on the Unity **main thread** (Harmony/Photon-safe) | ❌ | ⚠️ | ✅ |
 | Automatic route selection | ❌ | ❌ | ✅ |
+| DLL classification (managed / native / AnyCPU / attributes) | ❌ | ❌ | ✅ |
 | Entry-point **validation** before injecting | ❌ | ❌ | ✅ |
 | Detects **Harmony** usage in your DLL | ❌ | ❌ | ✅ |
 | Saved **profiles** + one-click inject | ❌ | ⚠️ | ✅ |
 | **Auto-inject** on launch | ❌ | ✅ | ✅ *(configurable delay)* |
-| Receiver auto-discovery / install | ❌ | ❌ | ✅ |
+| Receiver auto-discovery, install, & **update-in-place** | ❌ | ❌ | ✅ correct variant picked |
 | **Global hotkey** — inject without Alt-Tabbing | ❌ | ❌ | ✅ |
 | **Eject / reload** a mod without restarting the game | ❌ | ❌ | ✅ *(optional unload entry point)* |
 | Searchable target list · recent DLLs · paste-to-split entry point | ❌ | ❌ | ✅ |
@@ -326,7 +407,7 @@ Add profiles, auto-inject, entry-point validation, Harmony detection and a moder
 
 ## 📥 Getting started
 
-> 📦 **Download ZyMono for Windows (v0.2.0)** from the official page: **[zlogic.eu/zymono](https://zlogic.eu/zymono/)** — grab the installer (.exe) or MSI right there.
+> 📦 **Download ZyMono for Windows (v0.3.0)** from the official page: **[zlogic.eu/zymono](https://zlogic.eu/zymono/)** — grab the installer (.exe) or MSI right there.
 > Signed and auto-updating — future versions install themselves from inside the app. This GitHub repo is the **source code**; prefer not to run a pre-built binary? **[Build it yourself](#-build-it-yourself)** in a couple of minutes.
 
 1. **Launch your game.** It appears in the **Targets** list on the left, with its runtime and architecture.
@@ -336,7 +417,7 @@ Add profiles, auto-inject, entry-point validation, Harmony detection and a moder
 5. **Save it as a Profile** so next time it's one click — or flag it for **Auto-inject** so it fires the moment the game launches.
 6. *(Optional)* Set a **global hotkey** in Settings and re-inject from inside the game, or fill in an **unload entry point** to get an **Eject** button that reloads your mod without restarting.
 
-> 💡 ZyMono injects into **Mono** games. **IL2CPP** games have no Mono runtime and are shown as *not injectable*.
+> 💡 ZyMono injects into **both Mono and IL2CPP** games. Pick your DLL — the mode toggle and route panel reshape around it automatically. Native C++ mods route through LoadLibrary / Manual Map; C# mods route through the pipe if a loader is live, or Direct if not.
 
 ---
 
@@ -378,14 +459,15 @@ pnpm tauri dev
 
 <br/>
 
-The pipe route uses a small BepInEx plugin. A pre-built copy is bundled with the app, but you can rebuild it:
+The pipe route uses one of **three** small plugins depending on which loader is live in the target game — one per project, one shared code core:
 
 ```bash
-cd ZyMono.Receiver
-dotnet build -c Release
+dotnet build ZyMono.Receiver           -c Release   # BepInEx classic (Mono) → ZyMonoReceiver.dll
+dotnet build ZyMono.Receiver.IL2CPP    -c Release   # BepInEx-IL2CPP        → ZyMonoReceiverIL2CPP.dll
+dotnet build ZyMono.MelonReceiver      -c Release   # MelonLoader           → ZyMonoMelonReceiver.dll
 ```
 
-This produces `bin/Release/ZyMonoReceiver.dll`. The included `nuget.config` points at the BepInEx package feed. ZyMono can install this plugin into a game's `BepInEx/plugins` folder for you.
+The MelonReceiver csproj auto-downloads MelonLoader on first build (`lib/` cache). The BepInEx variants pull from the official BepInEx NuGet feed via `nuget.config`. ZyMono installs the correct variant based on `detect_loader(pid) + engine`, into `BepInEx/plugins/` or `Mods/` as appropriate.
 
 </details>
 
@@ -398,10 +480,14 @@ This produces `bin/Release/ZyMonoReceiver.dll`. The included `nuget.config` poin
 | | Status |
 |:---|:---|
 | **OS** | Windows 10 / 11 (x64) |
-| **Game runtime** | **Mono** (Unity) — both classic `mono.dll` and modern `mono-2.0-bdwgc.dll` |
-| **Architecture** | x86 **and** x64 games |
-| **Mod loaders** | Works alongside **BepInEx** via the receiver; also injects into games with no loader |
-| **Not supported** | **IL2CPP** games (no Mono runtime to inject into) |
+| **Game runtime — Mono** | ✅ full support — both classic `mono.dll` and modern `mono-2.0-bdwgc.dll` |
+| **Game runtime — IL2CPP** | ✅ via native injection (LoadLibrary / Manual Map / Proxy preloader) or via a BepInEx-IL2CPP / MelonLoader receiver |
+| **Architecture** | x86 **and** x64 games; managed AnyCPU DLLs load into either bitness |
+| **Mod language — C# / managed** | ✅ via Direct or Pipe (three receiver variants) |
+| **Mod language — C++ / native** | ✅ via LoadLibrary, in-memory Manual Map, or Proxy preloader |
+| **Mod loaders detected & bridged** | **BepInEx classic** (Mono), **BepInEx-IL2CPP**, **MelonLoader**, or no loader at all |
+| **Auto-registration** | ✅ `[MelonInfo]` MelonMods and `[BepInPlugin]` plugins — no entry point required |
+| **Proxy preloader (native)** | ✅ x64 games — `winhttp.dll` / `version.dll` stub with forwarded exports |
 
 </div>
 
@@ -430,13 +516,31 @@ No — that's exactly the case the pipe route handles. ZyMono even flags Harmony
 <details>
 <summary><b>It says "no receiver".</b></summary>
 <br/>
-The receiver plugin isn't loaded in the game yet. Use ZyMono's <em>Install receiver + restart</em> flow to drop it into the game's <code>BepInEx/plugins</code> folder and relaunch — or use the Direct route if no loader is running.
+The receiver plugin isn't loaded in the game yet. Use ZyMono's <em>Install receiver</em> flow — it picks the correct variant (BepInEx classic, BepInEx-IL2CPP, or MelonLoader) based on what's live and drops it into the right folder (<code>BepInEx/plugins/</code> or <code>Mods/</code>). Relaunch the game — or use Direct / native routes if a loader isn't running.
 </details>
 
 <details>
 <summary><b>Is IL2CPP supported?</b></summary>
 <br/>
-No. IL2CPP compiles C# ahead-of-time and has no Mono runtime, so managed injection doesn't apply. ZyMono clearly marks IL2CPP games as not injectable.
+Yes — as of 0.3.0. IL2CPP has no Mono runtime, so managed C# mods only work if a compatible loader is live (BepInEx-IL2CPP or MelonLoader) and ZyMono streams the DLL to the matching receiver over the pipe. But <b>native C++ mods</b> load directly into any IL2CPP game via LoadLibrary or the in-memory Manual Map route — Windows is the loader, no runtime needed. There's also a Proxy preloader for auto-load at next launch.
+</details>
+
+<details>
+<summary><b>Does ZyMono work with MelonLoader?</b></summary>
+<br/>
+Yes. ZyMono ships <code>ZyMonoMelonReceiver.dll</code> — a real <code>MelonMod</code> with a pipe server and an <code>OnUpdate</code>-pumped dispatcher. Drop a MelonMod DLL onto ZyMono and it detects the <code>[MelonInfo]</code> attribute, hides the entry-point column, and (on inject) hands the assembly to <code>MelonAssembly.LoadMelonAssembly</code> — MelonLoader runs the full <code>OnInitializeMelon</code> / <code>OnLateInitializeMelon</code> / <code>OnUpdate</code> lifecycle exactly as if the file had been in <code>Mods/</code> at startup.
+</details>
+
+<details>
+<summary><b>What's the difference between LoadLibrary and Manual Map?</b></summary>
+<br/>
+Both load a native C++ mod into a running game, but differ in where the DLL lives. <b>LoadLibrary</b> has the game call <code>LoadLibraryW</code> on your DLL — Windows' own loader maps it from disk and fires <code>DllMain</code>. <b>Manual Map</b> copies the DLL into the game as a memory buffer and runs the whole loader itself: section copy, base relocations, imports resolved through the target's own modules, then <code>DllMain</code> via a small remote shellcode. Use Manual Map when you want the file to never remain on disk (single self-contained mods); use LoadLibrary when your mod loads side files by relative path.
+</details>
+
+<details>
+<summary><b>What is the Proxy preloader for?</b></summary>
+<br/>
+It's the same mechanism BepInEx and MelonLoader use to bootstrap themselves — a tiny <code>winhttp.dll</code> or <code>version.dll</code> stub next to the game exe with forwarded exports and a <code>DllMain</code> that <code>LoadLibraryW</code>s your mod. Drop it in once, and every future game launch auto-loads your native mod before ZyMono is even open. Currently x64 only.
 </details>
 
 <details>

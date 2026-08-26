@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <AssemblyName>ZyMonoReceiverIL2CPP</AssemblyName>
+    <RootNamespace>ZyMono.Receiver</RootNamespace>
+    <Product>ZyMono Receiver (BepInEx-IL2CPP)</Product>
+    <Company>TheHolyOneZ</Company>
+    <Authors>TheHolyOneZ</Authors>
+    <Description>In-game pipe-injection receiver for ZyMono — BepInEx-IL2CPP variant.</Description>
+    <Copyright>Copyright © 2026 TheHolyOneZ — GPL-3.0-only</Copyright>
+    <Version>0.3.0</Version>
+    <LangVersion>latest</LangVersion>
+    <Configuration Condition=" '$(Configuration)' == '' ">Release</Configuration>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <!-- CA1416: WaitForPipeDrain() is Windows-only; that's fine — this
+         whole project only ships to Windows games. -->
+    <NoWarn>$(NoWarn);CS0436;CA1416</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Share the pipe / loader / json / dispatcher code with the classic
+         receiver — only Plugin.cs differs between variants. -->
+    <Compile Include="..\ZyMono.Receiver\PipeServer.cs" Link="Shared\PipeServer.cs" />
+    <Compile Include="..\ZyMono.Receiver\Loader.cs" Link="Shared\Loader.cs" />
+    <Compile Include="..\ZyMono.Receiver\Json.cs" Link="Shared\Json.cs" />
+    <Compile Include="..\ZyMono.Receiver\Dispatcher.cs" Link="Shared\Dispatcher.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- BepInEx 6 for IL2CPP (BasePlugin, Il2CppInterop bridge). Pin to a
+         known-good bleeding-edge build; adjust if BepInEx 6 stable ships. -->
+    <PackageReference Include="BepInEx.Unity.IL2CPP" Version="6.0.0-be.725" IncludeAssets="compile" />
+    <PackageReference Include="BepInEx.Core" Version="6.0.0-be.725" IncludeAssets="compile" />
+    <PackageReference Include="Il2CppInterop.Runtime" Version="1.4.6-ci.539" IncludeAssets="compile" />
+    <!-- UnityEngine ref assemblies for Object/GameObject/MonoBehaviour. -->
+    <PackageReference Include="UnityEngine.Modules" Version="2021.3.0" IncludeAssets="compile" PrivateAssets="all" />
+  </ItemGroup>
+
+</Project>

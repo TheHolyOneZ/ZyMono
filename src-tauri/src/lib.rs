@@ -29,6 +29,11 @@ fn list_entry_points(dll_path: String) -> Result<Vec<metadata::EntryPoint>, Stri
 }
 
 #[tauri::command]
+fn dll_kind(dll_path: String) -> Result<metadata::DllKind, String> {
+    metadata::dll_kind(&dll_path)
+}
+
+#[tauri::command]
 fn assembly_references(dll_path: String) -> Result<Vec<String>, String> {
     metadata::assembly_references(&dll_path)
 }
@@ -39,6 +44,7 @@ async fn router_probe(pid: u32) -> RouterProbe {
         .await
         .unwrap_or_else(|_| RouterProbe {
             bepinex_live: false,
+            loader_name: None,
             receiver: None,
             recommended: "direct".into(),
             reason: "probe failed".into(),
@@ -69,6 +75,67 @@ async fn inject(app: AppHandle, request: InjectRequest) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || router::run(&app, request))
         .await
         .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn proxy_plan(
+    game_dir: String,
+    mod_dll_path: String,
+    prefer: Option<String>,
+) -> Result<serde_json::Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let p = inject::proxy::plan(
+            std::path::Path::new(&game_dir),
+            std::path::Path::new(&mod_dll_path),
+            prefer.as_deref(),
+        )?;
+        Ok(serde_json::json!({
+            "proxy_name": p.proxy_name,
+            "install_path": p.install_path.to_string_lossy(),
+            "target_mod_path": p.target_mod_path.to_string_lossy(),
+            "arch": p.arch,
+            "existing_will_be_backed_up": p.existing_will_be_backed_up,
+        }))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn proxy_install(
+    app: AppHandle,
+    game_dir: String,
+    mod_dll_path: String,
+    prefer: Option<String>,
+) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let plan = inject::proxy::plan(
+            std::path::Path::new(&game_dir),
+            std::path::Path::new(&mod_dll_path),
+            prefer.as_deref(),
+        )?;
+        let app2 = app.clone();
+        let log = move |line: &str| { let _ = app2.emit("zymono://proxy-log", line.to_string()); };
+        inject::proxy::install(&plan, &log)?;
+        Ok(plan.install_path.to_string_lossy().into_owned())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn proxy_uninstall(
+    app: AppHandle,
+    game_dir: String,
+    proxy_name: String,
+) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let app2 = app.clone();
+        let log = move |line: &str| { let _ = app2.emit("zymono://proxy-log", line.to_string()); };
+        inject::proxy::uninstall(std::path::Path::new(&game_dir), &proxy_name, &log)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -220,12 +287,16 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             list_mono_processes,
             list_entry_points,
+            dll_kind,
             assembly_references,
             router_probe,
             receiver_ping,
             receiver_install,
             receiver_install_target,
             inject,
+            proxy_plan,
+            proxy_install,
+            proxy_uninstall,
             cancel_injection,
             set_inject_hotkey,
             open_player_log,

@@ -3,6 +3,9 @@
 pub mod assembler;
 pub mod exports;
 pub mod memory;
+pub mod manual_map;
+pub mod native;
+pub mod proxy;
 
 use assembler::Stub;
 use exports::Exports;

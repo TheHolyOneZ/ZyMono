@@ -80,8 +80,18 @@ namespace ZyMono.Receiver
 
         private string Hello()
         {
+
             string game = "";
-            try { game = UnityEngine.Application.productName; } catch { }
+            try
+            {
+                var appType = System.Type.GetType("UnityEngine.Application, UnityEngine.CoreModule")
+                           ?? System.Type.GetType("UnityEngine.Application, UnityEngine");
+                var prop = appType?.GetProperty("productName",
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+                var value = prop?.GetValue(null);
+                if (value != null) game = value.ToString();
+            }
+            catch { }
             return "{\"op\":\"HELLO\",\"version\":\"" + Plugin.Version
                 + "\",\"game\":\"" + Json.Escape(game)
                 + "\",\"mono_domain_ready\":true}";

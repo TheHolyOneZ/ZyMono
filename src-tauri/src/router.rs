@@ -20,6 +20,16 @@ pub struct InjectRequest {
 
     #[serde(default)]
     pub invoke_only: bool,
+
+    #[serde(default)]
+    pub native: bool,
+
+    #[serde(default = "default_native_mode")]
+    pub native_mode: String,
+}
+
+fn default_native_mode() -> String {
+    "loadlibrary".into()
 }
 
 fn default_mode() -> String {
@@ -29,38 +39,41 @@ fn default_mode() -> String {
 #[derive(Debug, Clone, Serialize)]
 pub struct RouterProbe {
     pub bepinex_live: bool,
+    pub loader_name: Option<String>,
     pub receiver: Option<receiver::ReceiverHello>,
     pub recommended: String,
     pub reason: String,
 }
 
 pub fn probe(pid: u32) -> RouterProbe {
-    let live = bepinex::is_bepinex_live(pid);
-    let recv = if live {
+    let loader = bepinex::detect_loader(pid);
+    let bepinex_live = loader.as_deref() == Some("BepInEx");
+
+    let loader_live = loader.is_some();
+    let recv = if loader_live {
         receiver::ping(1200).ok().flatten()
     } else {
         None
     };
 
-    let (recommended, reason) = if !live {
-        (
+    let (recommended, reason) = match loader.as_deref() {
+        None => (
             "direct",
-            "BepInEx isn't loaded in this process, so direct injection is safe — even for a Harmony-patching mod.".to_string(),
-        )
-    } else if recv.is_some() {
-        (
+            "No mod loader is live in this process, so direct injection is safe — even for a Harmony-patching mod.".to_string(),
+        ),
+        Some(name) if recv.is_some() => (
             "pipe",
-            "BepInEx is live and the receiver plugin responded — the load will be handed to it over the pipe.".to_string(),
-        )
-    } else {
-        (
+            format!("{name} is live and the ZyMono receiver responded — the load will be handed to it over the pipe."),
+        ),
+        Some(name) => (
             "pipe",
-            "BepInEx is live but no receiver plugin responded. Install the receiver and restart the game, or inject directly (may crash a modded game).".to_string(),
-        )
+            format!("{name} is live but no ZyMono receiver responded. Install the matching receiver and restart the game, or inject directly (may crash a modded game)."),
+        ),
     };
 
     RouterProbe {
-        bepinex_live: live,
+        bepinex_live,
+        loader_name: loader,
         receiver: recv,
         recommended: recommended.to_string(),
         reason,
@@ -107,33 +120,51 @@ pub fn run(app: &AppHandle, req: InjectRequest) -> Result<(), String> {
         }
     }
 
+    let timeout_ms = req.timeout_secs.unwrap_or(40) * 1000;
+
+    if req.native {
+        let x86 = arch_is_x86(req.pid);
+        match req.native_mode.as_str() {
+            "manual_map" => {
+                log("→ native DLL injection (manual map, in-memory)");
+                inject::manual_map::inject(req.pid, x86, &req.dll_path, timeout_ms, &log)?;
+                log("✓ native DLL manual-mapped — its DllMain has run");
+            }
+            _ => {
+                log("→ native DLL injection (LoadLibraryW)");
+                inject::native::inject(req.pid, x86, &req.dll_path, timeout_ms, &log)?;
+                log("✓ native DLL loaded — its DllMain has run");
+            }
+        }
+        return Ok(());
+    }
+
     let mode = req.method_mode.as_str();
-    let live = bepinex::is_bepinex_live(req.pid);
+    let loader = bepinex::detect_loader(req.pid);
+    let loader_live = loader.is_some();
 
     let use_pipe = match mode {
         "direct" => false,
         "pipe" => true,
         _ => {
-
-            if !live {
-                log("→ BepInEx is not live in this process — choosing direct injection.");
+            if !loader_live {
+                log("→ No mod loader is live in this process — choosing direct injection.");
                 false
             } else {
-                log("→ BepInEx is live — pinging receiver plugin…");
+                let name = loader.as_deref().unwrap_or("mod loader");
+                log(&format!("→ {name} is live — pinging ZyMono receiver…"));
                 match receiver::ping(1500).ok().flatten() {
                     Some(h) => {
                         log(&format!("→ receiver online v{} — routing through the pipe.", h.version));
                         true
                     }
                     None => {
-                        return Err("BepInEx is live but no receiver plugin responded. Install the receiver and restart the game, or choose Force Direct.".into());
+                        return Err(format!("{name} is live but no ZyMono receiver responded. Install the matching receiver and restart the game, or choose Force Direct."));
                     }
                 }
             }
         }
     };
-
-    let timeout_ms = req.timeout_secs.unwrap_or(40) * 1000;
 
     if use_pipe {
         if mode == "pipe" {

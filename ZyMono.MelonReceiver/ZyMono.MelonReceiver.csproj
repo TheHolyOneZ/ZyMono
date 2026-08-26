@@ -1,0 +1,61 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <AssemblyName>ZyMonoMelonReceiver</AssemblyName>
+    <RootNamespace>ZyMono.Receiver</RootNamespace>
+    <Product>ZyMono Receiver (MelonLoader)</Product>
+    <Company>TheHolyOneZ</Company>
+    <Authors>TheHolyOneZ</Authors>
+    <Description>In-game pipe-injection receiver for ZyMono — MelonLoader variant.</Description>
+    <Copyright>Copyright © 2026 TheHolyOneZ — GPL-3.0-only</Copyright>
+    <Version>0.3.0</Version>
+    <LangVersion>latest</LangVersion>
+    <Configuration Condition=" '$(Configuration)' == '' ">Release</Configuration>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <NoWarn>$(NoWarn);CS0436;CA1416</NoWarn>
+  </PropertyGroup>
+
+  <!-- MelonLoader isn't on NuGet the way BepInEx is, so we grab the official
+       release zip from GitHub on first build and cache it under ./lib.
+       Delete ./lib to force a re-download or bump MelonLoaderVersion. -->
+  <PropertyGroup>
+    <MelonLoaderVersion>0.6.6</MelonLoaderVersion>
+    <MelonLoaderZipUrl>https://github.com/LavaGang/MelonLoader/releases/download/v$(MelonLoaderVersion)/MelonLoader.x64.zip</MelonLoaderZipUrl>
+    <MelonLoaderCache>$(MSBuildProjectDirectory)\lib</MelonLoaderCache>
+    <MelonLoaderZip>$(MelonLoaderCache)\MelonLoader.x64.zip</MelonLoaderZip>
+    <MelonLoaderDll>$(MelonLoaderCache)\MelonLoader\net35\MelonLoader.dll</MelonLoaderDll>
+  </PropertyGroup>
+
+  <Target Name="EnsureMelonLoader" BeforeTargets="ResolveAssemblyReferences">
+    <MakeDir Directories="$(MelonLoaderCache)" Condition="!Exists('$(MelonLoaderCache)')" />
+    <DownloadFile
+      SourceUrl="$(MelonLoaderZipUrl)"
+      DestinationFolder="$(MelonLoaderCache)"
+      DestinationFileName="MelonLoader.x64.zip"
+      SkipUnchangedFiles="true"
+      Condition="!Exists('$(MelonLoaderDll)')" />
+    <Exec
+      Command="powershell -NoProfile -ExecutionPolicy Bypass -Command &quot;Expand-Archive -LiteralPath '$(MelonLoaderZip)' -DestinationPath '$(MelonLoaderCache)' -Force&quot;"
+      Condition="!Exists('$(MelonLoaderDll)') AND Exists('$(MelonLoaderZip)')" />
+    <Message Text="MelonLoader v$(MelonLoaderVersion) resolved at $(MelonLoaderDll)" Importance="high" />
+  </Target>
+
+  <ItemGroup>
+    <!-- Share the network / metadata code with the classic receiver.
+         Dispatcher differs (MelonLoader pumps its own queue via OnUpdate),
+         so we ship our own Dispatcher.cs rather than link the classic one. -->
+    <Compile Include="..\ZyMono.Receiver\PipeServer.cs" Link="Shared\PipeServer.cs" />
+    <Compile Include="..\ZyMono.Receiver\Loader.cs" Link="Shared\Loader.cs" />
+    <Compile Include="..\ZyMono.Receiver\Json.cs" Link="Shared\Json.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="MelonLoader">
+      <HintPath>$(MelonLoaderDll)</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>

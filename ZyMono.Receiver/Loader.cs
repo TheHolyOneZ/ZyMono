@@ -7,6 +7,9 @@ namespace ZyMono.Receiver
 
     internal static class Loader
     {
+
+        public static Func<Assembly, byte[], string> AutoRegister;
+
         public static string Load(string path, string typeName, string method, string[] args)
         {
             if (!File.Exists(path))
@@ -14,6 +17,13 @@ namespace ZyMono.Receiver
 
             byte[] bytes = File.ReadAllBytes(path);
             Assembly asm = Assembly.Load(bytes);
+
+            if (string.IsNullOrEmpty(typeName) && string.IsNullOrEmpty(method))
+            {
+                if (AutoRegister == null)
+                    throw new Exception("no entry point given and this receiver variant doesn't support auto-registration");
+                return AutoRegister(asm, bytes);
+            }
 
             return InvokeIn(asm, typeName, method, args);
         }

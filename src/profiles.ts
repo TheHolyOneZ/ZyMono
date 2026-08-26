@@ -32,6 +32,8 @@ function normalize(p: Partial<Profile>): Profile {
     unload: p.unload ?? "",
     args: p.args ?? [],
     methodMode: p.methodMode ?? "auto",
+    native: p.native ?? false,
+    nativeMode: p.nativeMode ?? "loadlibrary",
     gameExe: p.gameExe ?? null,
     gameName: p.gameName ?? null,
     updated: p.updated ?? Date.now(),

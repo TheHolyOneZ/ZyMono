@@ -17,6 +17,101 @@ pub fn list_entry_points(path: &str) -> Result<Vec<EntryPoint>, String> {
     parse(&data).ok_or_else(|| "could not parse .NET metadata (not a managed assembly?)".into())
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct DllKind {
+
+    pub kind: String,
+
+    pub arch: String,
+
+    pub has_bep_in_plugin: bool,
+
+    pub has_melon_info: bool,
+}
+
+pub fn dll_kind(path: &str) -> Result<DllKind, String> {
+    let data = std::fs::read(path).map_err(|e| format!("read {path}: {e}"))?;
+    if data.len() < 0x40 || &data[..2] != b"MZ" {
+        return Ok(DllKind {
+            kind: "unknown".into(),
+            arch: "unknown".into(),
+            has_bep_in_plugin: false,
+            has_melon_info: false,
+        });
+    }
+    let e_lfanew =
+        u32::from_le_bytes([data[0x3C], data[0x3D], data[0x3E], data[0x3F]]) as usize;
+    if data.len() < e_lfanew + 6 || &data[e_lfanew..e_lfanew + 4] != b"PE\0\0" {
+        return Ok(DllKind {
+            kind: "unknown".into(),
+            arch: "unknown".into(),
+            has_bep_in_plugin: false,
+            has_melon_info: false,
+        });
+    }
+    let machine = u16::from_le_bytes([data[e_lfanew + 4], data[e_lfanew + 5]]);
+
+    let clr_rva = (|| -> Option<u32> {
+        let opt = e_lfanew + 0x18;
+        let magic = u16_(&data, opt)?;
+        let is64 = magic == 0x20b;
+        let dir = opt + if is64 { 0x70 } else { 0x60 } + 14 * 8;
+        let rva = u32_(&data, dir)?;
+        if rva == 0 { None } else { Some(rva) }
+    })();
+    let managed = clr_rva.is_some();
+
+    let arch = if managed {
+
+        let cor_flags = clr_rva
+            .and_then(|rva| clr_flags(&data, e_lfanew, rva))
+            .unwrap_or(0);
+        let requires_32 = cor_flags & 0x2 != 0;
+        match machine {
+            0x8664 => "x64",
+            0x014c if requires_32 => "x86",
+            0x014c => "anycpu",
+            _ => "unknown",
+        }
+    } else {
+        match machine {
+            0x8664 => "x64",
+            0x014c => "x86",
+            _ => "unknown",
+        }
+    }
+    .to_string();
+
+    let has_bep_in_plugin = managed && contains_bytes(&data, b"BepInPlugin");
+    let has_melon_info = managed
+        && (contains_bytes(&data, b"MelonInfo") || contains_bytes(&data, b"MelonModAttribute"));
+
+    Ok(DllKind {
+        kind: if managed { "managed".into() } else { "native".into() },
+        arch,
+        has_bep_in_plugin,
+        has_melon_info,
+    })
+}
+
+fn clr_flags(data: &[u8], e_lfanew: usize, clr_rva: u32) -> Option<u32> {
+    let num_sections = u16_(data, e_lfanew + 6)? as usize;
+    let opt_size = u16_(data, e_lfanew + 0x14)? as usize;
+    let sections_off = e_lfanew + 0x18 + opt_size;
+    for i in 0..num_sections {
+        let s = sections_off + i * 40;
+        let va = u32_(data, s + 12)?;
+        let vsize = u32_(data, s + 8)?;
+        let raw = u32_(data, s + 20)?;
+        if clr_rva >= va && clr_rva < va + vsize {
+            let file_off = raw as usize + (clr_rva - va) as usize;
+
+            return u32_(data, file_off + 16);
+        }
+    }
+    None
+}
+
 pub fn assembly_references(path: &str) -> Result<Vec<String>, String> {
     let data = std::fs::read(path).map_err(|e| format!("read {path}: {e}"))?;
     let mut refs = parse_refs(&data).unwrap_or_default();
