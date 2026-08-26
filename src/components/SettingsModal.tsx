@@ -402,18 +402,19 @@ export default function SettingsModal({
                 </div>
 
                 <p className="about-body">
-                  Windows-native Mono/Unity injector. Direct in-memory injection plus smart routing
-                  through an in-game receiver plugin when BepInEx is actually live — decided from the
-                  running process, not folders on disk.
+                  Windows-native Unity injector for Mono and IL2CPP games. Loads C# or C++ mods via
+                  direct in-memory injection, a pipe to an in-game receiver when BepInEx or
+                  MelonLoader is live, or native LoadLibrary / manual map — decided from the
+                  running process and the DLL you picked, not folders on disk.
                 </p>
                 <dl className="about-tested">
                   <div>
                     <dt>Modes</dt>
-                    <dd>Direct injection · Pipe injection (BepInEx receiver)</dd>
+                    <dd>Direct · Pipe (BepInEx / MelonLoader) · LoadLibrary · Manual map · Proxy</dd>
                   </div>
                   <div>
                     <dt>Targets</dt>
-                    <dd>Windows · Mono/Unity · x86 &amp; x64</dd>
+                    <dd>Windows · Mono &amp; IL2CPP · x86 &amp; x64</dd>
                   </div>
                 </dl>
                 <div className="about-made">

@@ -1110,7 +1110,7 @@ export default function App() {
               )}
             </div>
             <div className="mode-wrap">
-              <InfoTip text="ZyMono attaches to a running Mono/Unity game and loads your .NET assembly in-memory, then calls its entry point." />
+              <InfoTip text="ZyMono attaches to a running Unity game — Mono or IL2CPP — and loads your C# assembly or native DLL, then calls its entry point." />
             </div>
           </div>
 
@@ -1146,8 +1146,8 @@ export default function App() {
                 </div>
                 <ol className="guide-steps">
                   <li>
-                    <strong>Pick a target</strong> on the left — Mono/Unity games are injectable;
-                    IL2CPP games aren't (no Mono runtime).
+                    <strong>Pick a target</strong> on the left — both Mono and IL2CPP Unity
+                    games are injectable; ZyMono picks the route for you.
                   </li>
                   <li>
                     <strong>Choose your mod DLL</strong> and its entry point (Namespace.Class.Method)

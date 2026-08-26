@@ -19,7 +19,7 @@
 </p>
 
 <p>
-<a href="https://zlogic.eu/zymono/"><img src="https://img.shields.io/badge/download-v0.3.0%20%C2%B7%20Windows%20x64-2f8fff?style=for-the-badge&logo=windows&logoColor=white" alt="Download ZyMono for Windows" /></a>
+<a href="https://zlogic.eu/zymono/"><img src="https://img.shields.io/badge/download-v0.3.1%20%C2%B7%20Windows%20x64-2f8fff?style=for-the-badge&logo=windows&logoColor=white" alt="Download ZyMono for Windows" /></a>
 </p>
 
 <p>
@@ -40,7 +40,7 @@
 
 <div align="center">
 
-<a href="#-whats-new-in-030">What's new</a> ·
+<a href="#-whats-new-in-031">What's new</a> ·
 <a href="#-what-is-zymono">What is it</a> ·
 <a href="#-feature-overview">Features</a> ·
 <a href="#-how-injection-works">How it works</a> ·
@@ -51,6 +51,23 @@
 <a href="#-faq">FAQ</a>
 
 </div>
+
+---
+
+## 🆕 What's new in 0.3.1
+
+*A fix release for 0.3.0.*
+
+**🐞 IL2CPP & MelonLoader receiver install fixed**
+0.3.0 shipped only the classic BepInEx receiver inside the installer — the BepInEx-IL2CPP and MelonLoader
+DLLs were built but never bundled. Installing either from a real (non-dev) install failed with
+*"bundled receiver DLL not found — build the … project first"*. All three receivers
+(`ZyMonoReceiver.dll`, `ZyMonoReceiverIL2CPP.dll`, `ZyMonoMelonReceiver.dll`) now ship with the app.
+
+**📝 Wording corrected throughout**
+ZyMono stopped being a Mono-only injector in 0.3.0, but the app metadata, tray tooltip, title bar and
+About panel hadn't caught up. The in-app guide also still claimed *"IL2CPP games aren't injectable
+(no Mono runtime)"* — flatly wrong since 0.3.0. All corrected.
 
 ---
 
@@ -407,7 +424,7 @@ Add profiles, auto-inject, entry-point validation, Harmony detection and a moder
 
 ## 📥 Getting started
 
-> 📦 **Download ZyMono for Windows (v0.3.0)** from the official page: **[zlogic.eu/zymono](https://zlogic.eu/zymono/)** — grab the installer (.exe) or MSI right there.
+> 📦 **Download ZyMono for Windows (v0.3.1)** from the official page: **[zlogic.eu/zymono](https://zlogic.eu/zymono/)** — grab the installer (.exe) or MSI right there.
 > Signed and auto-updating — future versions install themselves from inside the app. This GitHub repo is the **source code**; prefer not to run a pre-built binary? **[Build it yourself](#-build-it-yourself)** in a couple of minutes.
 
 1. **Launch your game.** It appears in the **Targets** list on the left, with its runtime and architecture.

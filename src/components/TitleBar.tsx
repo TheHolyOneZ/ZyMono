@@ -26,7 +26,7 @@ export default function TitleBar({ onSettings }: Props) {
       <div className="titlebar-brand" data-tauri-drag-region>
         <img className="brand-logo" src={logoUrl} alt="ZyMono" draggable={false} />
         <span className="titlebar-title">ZyMono</span>
-        <span className="titlebar-sub">Mono injection — Windows</span>
+        <span className="titlebar-sub">Mono · IL2CPP — Windows</span>
       </div>
 
       <div className="titlebar-controls">

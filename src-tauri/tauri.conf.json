@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "ZyMono",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "identifier": "eu.zlogic.zymono",
   "build": {
     "beforeDevCommand": "pnpm dev",
@@ -40,12 +40,14 @@
     "publisher": "TheHolyOneZ",
     "homepage": "https://zlogic.eu/zymono/",
     "category": "DeveloperTool",
-    "shortDescription": "Windows-native Mono/Unity injector",
-    "longDescription": "ZyMono is a Windows-native Mono/Unity game injector. It performs direct in-memory injection and smart routing through an in-game receiver plugin when BepInEx is actually live — decided from the running process, not folders on disk. For legitimate game modding of titles you own.",
+    "shortDescription": "Windows-native Unity game injector (Mono & IL2CPP)",
+    "longDescription": "ZyMono is a Windows-native Unity game injector for both Mono and IL2CPP titles. It loads C# or C++ mods into a running game and picks the right route automatically — direct in-memory Mono load, a pipe to an in-game receiver when BepInEx or MelonLoader is live, native LoadLibrary, in-memory manual map, or a proxy preloader — decided from the running process and the DLL you picked, not folders on disk. For legitimate game modding of titles you own.",
     "copyright": "Copyright © 2026 TheHolyOneZ — GPL-3.0-only",
     "licenseFile": "../LICENSE",
     "resources": {
-      "../ZyMono.Receiver/bin/Release/ZyMonoReceiver.dll": "ZyMonoReceiver.dll"
+      "../ZyMono.Receiver/bin/Release/ZyMonoReceiver.dll": "ZyMonoReceiver.dll",
+      "../ZyMono.Receiver.IL2CPP/bin/Release/ZyMonoReceiverIL2CPP.dll": "ZyMonoReceiverIL2CPP.dll",
+      "../ZyMono.MelonReceiver/bin/Release/ZyMonoMelonReceiver.dll": "ZyMonoMelonReceiver.dll"
     },
     "icon": [
       "icons/32x32.png",
