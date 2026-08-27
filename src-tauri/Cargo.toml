@@ -1,6 +1,6 @@
 [package]
 name = "zymono"
-version = "0.3.1"
+version = "0.4.0"
 description = "Windows-native Unity game injector for Mono and IL2CPP - C# and C++ mods"
 authors = ["TheHolyOneZ"]
 homepage = "https://zlogic.eu/zymono/"

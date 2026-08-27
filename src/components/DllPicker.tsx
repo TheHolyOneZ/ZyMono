@@ -6,6 +6,7 @@ import InfoTip from "./InfoTip";
 import MenuPopup from "./MenuPopup";
 import { basename, dirname } from "../path";
 import { forgetRecentDll } from "../recent";
+import { toLocal, localRect } from "../settings";
 
 interface Props {
   dllPath: string | null;
@@ -48,7 +49,7 @@ export default function DllPicker({ dllPath, onPick, defaultFolder, recent, onRe
             disabled={recent.length === 0}
             title={recent.length ? "Recently used DLLs" : "No recent DLLs yet"}
             onClick={(e) => {
-              const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+              const r = localRect(e.currentTarget as HTMLElement);
               setRecentMenu({ x: r.right, y: r.bottom + 4 });
             }}
           >
@@ -63,7 +64,7 @@ export default function DllPicker({ dllPath, onPick, defaultFolder, recent, onRe
             dllPath
               ? (e) => {
                   e.preventDefault();
-                  setMenu({ x: e.clientX, y: e.clientY });
+                  setMenu({ x: toLocal(e.clientX), y: toLocal(e.clientY) });
                 }
               : undefined
           }

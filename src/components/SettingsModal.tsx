@@ -19,7 +19,21 @@ import {
   Sparkles,
   Home,
 } from "lucide-react";
-import { ACCENTS, DEFAULT_SETTINGS, lighten, type Settings } from "../settings";
+import {
+  ACCENTS,
+  CONSOLE_FONTS,
+  DEFAULT_SETTINGS,
+  UI_SCALE_MIN,
+  UI_SCALE_MAX,
+  OPACITY_MIN,
+  OPACITY_MAX,
+  CONSOLE_SIZE_MIN,
+  CONSOLE_SIZE_MAX,
+  GLOW_MIN,
+  GLOW_MAX,
+  lighten,
+  type Settings,
+} from "../settings";
 import type { InjectMethod } from "../types";
 import InfoTip from "./InfoTip";
 import HotkeyInput from "./HotkeyInput";
@@ -62,6 +76,15 @@ const AUTOFILL: { key: Settings["profileAutofill"]; label: string }[] = [
   { key: "auto", label: "Auto" },
   { key: "off", label: "Off" },
 ];
+const DENSITIES: { key: Settings["density"]; label: string }[] = [
+  { key: "cozy", label: "Cozy" },
+  { key: "compact", label: "Compact" },
+];
+const CORNERS: { key: Settings["corners"]; label: string }[] = [
+  { key: "sharp", label: "Sharp" },
+  { key: "rounded", label: "Rounded" },
+  { key: "pill", label: "Pill" },
+];
 
 export default function SettingsModal({
   settings,
@@ -86,6 +109,41 @@ export default function SettingsModal({
     const dir = await open({ directory: true, multiple: false });
     if (typeof dir === "string") onChange({ modFolder: dir });
   };
+
+  const Slider = ({
+    value,
+    min,
+    max,
+    step = 1,
+    unit,
+    disabled,
+    set,
+  }: {
+    value: number;
+    min: number;
+    max: number;
+    step?: number;
+    unit: string;
+    disabled?: boolean;
+    set: (v: number) => void;
+  }) => (
+    <div className="setting-row slider-row">
+      <input
+        className="slider"
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        disabled={disabled}
+        onChange={(e) => set(Number(e.target.value))}
+      />
+      <span className="slider-value">
+        {value}
+        {unit}
+      </span>
+    </div>
+  );
 
   const Toggle = ({ on, set }: { on: boolean; set: (v: boolean) => void }) => (
     <button className={`toggle${on ? " on" : ""}`} onClick={() => set(!on)} role="switch" aria-checked={on}>
@@ -362,6 +420,145 @@ export default function SettingsModal({
                       <span className="ca-value">{settings.accent[0].toUpperCase()}</span>
                     </label>
                   </div>
+                </div>
+
+                <div className="setting setting-inline">
+                  <div className="setting-label">
+                    Accent glow
+                    <InfoTip text="The soft coloured halo behind buttons, the selected target and focused inputs. Turn it off for a flatter, calmer look." />
+                    <span className="setting-hint">halo behind accented elements</span>
+                  </div>
+                  <Toggle on={settings.accentGlow} set={(v) => onChange({ accentGlow: v })} />
+                </div>
+
+                <div className={`setting${settings.accentGlow ? "" : " setting-disabled"}`}>
+                  <div className="setting-label">
+                    Glow strength
+                    <InfoTip text="How intense the accent halo is. 100% is the ZyMono default." />
+                  </div>
+                  <Slider
+                    value={settings.glowStrength}
+                    min={GLOW_MIN}
+                    max={GLOW_MAX}
+                    step={5}
+                    unit="%"
+                    disabled={!settings.accentGlow}
+                    set={(v) => onChange({ glowStrength: v })}
+                  />
+                </div>
+
+                <div className="setting">
+                  <div className="setting-label">
+                    UI scale
+                    <InfoTip text="Zooms the whole interface. Handy on 4K screens, or turn it down to fit more targets and log lines on screen." />
+                    <span className="setting-hint">size of everything in the window</span>
+                  </div>
+                  <Slider
+                    value={settings.uiScale}
+                    min={UI_SCALE_MIN}
+                    max={UI_SCALE_MAX}
+                    step={5}
+                    unit="%"
+                    set={(v) => onChange({ uiScale: v })}
+                  />
+                </div>
+
+                <div className="setting">
+                  <div className="setting-label">
+                    Density
+                    <InfoTip text="Compact tightens padding, row heights and spacing so more targets and log lines fit on screen." />
+                    <span className="setting-hint">how tightly packed the layout is</span>
+                  </div>
+                  <div className="seg-choice">
+                    {DENSITIES.map((o) => (
+                      <button
+                        key={o.key}
+                        className={settings.density === o.key ? "active" : ""}
+                        onClick={() => onChange({ density: o.key })}
+                      >
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="setting">
+                  <div className="setting-label">
+                    Corner style
+                    <InfoTip text="Rounding used across the window, panels, buttons and inputs." />
+                    <span className="setting-hint">from square edges to fully rounded</span>
+                  </div>
+                  <div className="seg-choice">
+                    {CORNERS.map((o) => (
+                      <button
+                        key={o.key}
+                        className={settings.corners === o.key ? "active" : ""}
+                        onClick={() => onChange({ corners: o.key })}
+                      >
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="setting">
+                  <div className="setting-label">
+                    Window opacity
+                    <InfoTip text="Makes the ZyMono window itself see-through so you can keep an eye on the game behind it. 100% is fully solid." />
+                    <span className="setting-hint">see the game through the window</span>
+                  </div>
+                  <Slider
+                    value={settings.windowOpacity}
+                    min={OPACITY_MIN}
+                    max={OPACITY_MAX}
+                    step={1}
+                    unit="%"
+                    set={(v) => onChange({ windowOpacity: v })}
+                  />
+                </div>
+
+                <div className="setting">
+                  <div className="setting-label">
+                    Console font
+                    <InfoTip text="Typeface for the injection console. Falls back to the nearest installed font if the one you pick isn't on this machine." />
+                    <span className="setting-hint">typeface for the injection log</span>
+                  </div>
+                  <div className="seg-choice">
+                    {CONSOLE_FONTS.map((f) => (
+                      <button
+                        key={f.key}
+                        className={settings.consoleFont === f.key ? "active" : ""}
+                        style={{ fontFamily: f.stack }}
+                        onClick={() => onChange({ consoleFont: f.key })}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="setting">
+                  <div className="setting-label">
+                    Console text size
+                    <InfoTip text="Font size of the injection console output." />
+                  </div>
+                  <Slider
+                    value={settings.consoleFontSize}
+                    min={CONSOLE_SIZE_MIN}
+                    max={CONSOLE_SIZE_MAX}
+                    step={1}
+                    unit="px"
+                    set={(v) => onChange({ consoleFontSize: v })}
+                  />
+                </div>
+
+                <div className="setting setting-inline">
+                  <div className="setting-label">
+                    Reduce motion
+                    <InfoTip text="Turns off the fades, slides and the startup animation. Loading spinners stay, so you can still tell when ZyMono is busy." />
+                    <span className="setting-hint">skip animations and transitions</span>
+                  </div>
+                  <Toggle on={settings.reduceMotion} set={(v) => onChange({ reduceMotion: v })} />
                 </div>
               </>
             )}

@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { HelpCircle } from "lucide-react";
+import { viewportW, localRect } from "../settings";
 
 interface Props {
   text: string;
@@ -13,11 +14,11 @@ export default function InfoTip({ text, size = 12 }: Props) {
   const ref = useRef<HTMLSpanElement>(null);
 
   const open = () => {
-    const r = ref.current?.getBoundingClientRect();
-    if (!r) return;
+    if (!ref.current) return;
+    const r = localRect(ref.current);
 
     const half = 140;
-    const cx = Math.min(Math.max(r.left + r.width / 2, half), window.innerWidth - half);
+    const cx = Math.min(Math.max(r.left + r.width / 2, half), viewportW() - half);
     const below = r.top < 150;
     setPos({ x: cx, y: below ? r.bottom + 8 : r.top - 8, below });
     setShow(true);

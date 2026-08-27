@@ -2,6 +2,7 @@ import { useEffect, type MouseEvent } from "react";
 import { createPortal } from "react-dom";
 import { Crosshair, Copy, FolderOpen, FileText } from "lucide-react";
 import type { MonoProcess } from "../types";
+import { viewportH, viewportW } from "../settings";
 
 interface Props {
   proc: MonoProcess;
@@ -38,8 +39,8 @@ export default function ProcessContextMenu({
     };
   }, []);
 
-  const left = Math.max(8, Math.min(x, window.innerWidth - 320));
-  const top = Math.max(8, Math.min(y, window.innerHeight - 400));
+  const left = Math.max(8, Math.min(x, viewportW() - 320));
+  const top = Math.max(8, Math.min(y, viewportH() - 400));
 
   const info: [string, string | null][] = [
     ["Name", proc.name],

@@ -14,6 +14,7 @@ import {
 import { activePhases, reachedPhase } from "../phases";
 import type { RunState } from "../types";
 import MenuPopup from "./MenuPopup";
+import { toLocal } from "../settings";
 
 interface Props {
   lines: string[];
@@ -158,7 +159,7 @@ export default function StatusLog({
                 className={`log-line ${kind}`}
                 onContextMenu={(e) => {
                   e.preventDefault();
-                  setMenu({ x: e.clientX, y: e.clientY, line: text });
+                  setMenu({ x: toLocal(e.clientX), y: toLocal(e.clientY), line: text });
                 }}
               >
                 <span className="log-icon">

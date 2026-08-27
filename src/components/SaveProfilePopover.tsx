@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { BookMarked } from "lucide-react";
+import { viewportW } from "../settings";
 
 interface Props {
   x: number;
@@ -37,7 +38,7 @@ export default function SaveProfilePopover({ x, y, defaultName, title = "Save pr
   };
 
   const width = 300;
-  const left = Math.max(8, Math.min(x - width, window.innerWidth - width - 8));
+  const left = Math.max(8, Math.min(x - width, viewportW() - width - 8));
   const top = Math.max(8, y);
 
   return createPortal(

@@ -154,8 +154,8 @@ Drop a `.dll` anywhere on the window to load it. The overlay names the file befo
 **🖥️ A real widescreen layout**
 Maximize the window and the config panel reflows: one column → **two** at 780 px → **three** at 1500 px. No more 60 % of a widescreen monitor left as empty black space.
 
-**♿ High-contrast mode**
-**Settings → Appearance → High contrast** raises borders, surfaces and text contrast across the whole app, on top of whichever accent you use.
+**🎨 An Appearance tab that actually sticks**
+**Settings → Appearance** now carries **UI scale**, **density** (cozy / compact), **corner style**, **window opacity** so you can watch the game through ZyMono, **console font and text size**, an **accent glow** toggle with a strength slider, and **reduce motion**. High contrast still raises borders, surfaces and text across the whole app on top of whichever accent you use — and as of 0.4.0 none of it resets when you restart.
 
 </td>
 </tr>
@@ -296,6 +296,7 @@ What sets ZyMono apart is that it **doesn't guess**. It inspects the picked DLL 
 - Action bar with a live *what → where* summary, right under the form
 - **Widescreen layout**: 1 → 2 → 3 columns as the window grows
 - **6 accent themes** + custom colour picker + **high-contrast mode**
+- **UI scale, density, corner style, window opacity, console font** — all persisted
 - Shortcuts: <kbd>Ctrl</kbd>+<kbd>Enter</kbd> inject · <kbd>Esc</kbd> cancel · <kbd>Ctrl</kbd>+<kbd>L</kbd> clear · <kbd>Ctrl</kbd>+<kbd>F</kbd> find target
 - **Global inject hotkey** — fire from inside the game, no Alt-Tab
 
@@ -307,6 +308,12 @@ What sets ZyMono apart is that it **doesn't guess**. It inspects the picked DLL 
 <img src="docs/img/settings.png" alt="ZyMono's categorised settings: process refresh, DLL picker folder, profile autofill, auto-inject on launch with a wait time, and the global inject hotkey" width="720" />
 <br/>
 <sub>Categorised settings — process refresh, DLL picker folder, profile autofill, auto-inject on launch with a configurable wait time, and the <b>global inject hotkey</b> that works while you're in the game.</sub>
+</div>
+
+<div align="center">
+<img src="docs/img/appearance.png" alt="ZyMono's Appearance settings: high contrast, accent colour presets and custom picker, accent glow with a strength slider, and UI scale" width="720" />
+<br/>
+<sub>Appearance — accent presets and a custom picker, an <b>accent glow</b> toggle with strength, <b>UI scale</b>, density, corner style, window opacity, console font and size, and reduce motion. Stored in <code>%APPDATA%\ZyMono\settings.json</code>, so it survives a restart.</sub>
 </div>
 
 ---
@@ -575,7 +582,7 @@ Yes. Set a <b>global inject hotkey</b> in <em>Settings → Injection</em> (<kbd>
 <details>
 <summary><b>Where does ZyMono store my profiles and settings?</b></summary>
 <br/>
-Profiles live in a real file at <code>%APPDATA%\ZyMono\profiles.json</code> (so they survive crashes and force-kills). App settings and window layout are kept per-user as well.
+Profiles live in a real file at <code>%APPDATA%\ZyMono\profiles.json</code> and your settings — accent, theme, UI scale, routes, hotkey — in <code>%APPDATA%\ZyMono\settings.json</code>, so both survive crashes and force-kills. Window layout is kept per-user as well.
 </details>
 
 ---

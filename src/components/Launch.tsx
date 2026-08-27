@@ -3,6 +3,7 @@ import "./Launch.css";
 
 interface Props {
   onDone: () => void;
+  reduced?: boolean;
 }
 
 const Z_PATH =
@@ -33,7 +34,7 @@ const MOTES = [
   { x: 96, y: 30, s: 1.5, d: 0.4, t: 8.0 },
 ];
 
-export function Launch({ onDone }: Props) {
+export function Launch({ onDone, reduced: reducedPref }: Props) {
   const [leaving, setLeaving] = useState(false);
   const done = useRef(false);
 
@@ -45,8 +46,9 @@ export function Launch({ onDone }: Props) {
 
   useEffect(() => {
     const reduced =
-      typeof matchMedia === "function" &&
-      matchMedia("(prefers-reduced-motion: reduce)").matches;
+      reducedPref ||
+      (typeof matchMedia === "function" &&
+        matchMedia("(prefers-reduced-motion: reduce)").matches);
     if (reduced || (window as never as { __zymonoNoLaunch?: boolean }).__zymonoNoLaunch) {
       finish();
       return;
@@ -63,7 +65,7 @@ export function Launch({ onDone }: Props) {
       window.removeEventListener("pointerdown", skip);
       window.removeEventListener("keydown", skip);
     };
-  }, [finish]);
+  }, [finish, reducedPref]);
 
   return (
     <div

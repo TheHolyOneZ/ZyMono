@@ -1,7 +1,7 @@
 {
   "name": "zymono",
   "private": true,
-  "version": "0.3.1",
+  "version": "0.4.0",
   "type": "module",
   "description": "Windows-native Unity game injector for Mono and IL2CPP - C# and C++ mods",
   "author": "TheHolyOneZ",

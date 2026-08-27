@@ -35,7 +35,20 @@ import SettingsModal from "./components/SettingsModal";
 import SaveProfilePopover from "./components/SaveProfilePopover";
 import MenuPopup from "./components/MenuPopup";
 import ResizeHandles from "./components/ResizeHandles";
-import { loadSettings, saveSettings, applyAccent, applyContrast, type Settings } from "./settings";
+import {
+  loadSettings,
+  loadSettingsFile,
+  persistSettings,
+  saveSettings,
+  flushSettings,
+  applyAccent,
+  applyContrast,
+  applyAppearance,
+  viewportH,
+  toLocal,
+  localRect,
+  type Settings,
+} from "./settings";
 import {
   parseProfiles,
   migrateFromLocalStorage,
@@ -213,13 +226,50 @@ export default function App() {
     localStorage.setItem("zymono.guideDismissed", "1");
   };
 
-  useEffect(() => applyAccent(settings.accent), [settings.accent]);
+  useEffect(
+    () => applyAccent(settings.accent, settings.accentGlow, settings.glowStrength),
+    [settings.accent, settings.accentGlow, settings.glowStrength]
+  );
   useEffect(() => applyContrast(settings.highContrast), [settings.highContrast]);
+  useEffect(() => applyAppearance(settings), [
+    settings.uiScale,
+    settings.density,
+    settings.corners,
+    settings.windowOpacity,
+    settings.consoleFontSize,
+    settings.consoleFont,
+    settings.reduceMotion,
+  ]);
+
+  useEffect(() => {
+    let live = true;
+    loadSettingsFile()
+      .then((fromDisk) => {
+        if (!live) return;
+        if (fromDisk) {
+          setSettings(fromDisk);
+
+          saveSettings(fromDisk);
+        } else {
+          persistSettings(settingsRef.current);
+        }
+      })
+      .catch(() => {});
+    const flush = () => flushSettings();
+    window.addEventListener("beforeunload", flush);
+    document.addEventListener("visibilitychange", flush);
+    return () => {
+      live = false;
+      window.removeEventListener("beforeunload", flush);
+      document.removeEventListener("visibilitychange", flush);
+      flushSettings();
+    };
+  }, []);
 
   const updateSettings = (patch: Partial<Settings>) => {
     setSettings((prev) => {
       const next = { ...prev, ...patch };
-      saveSettings(next);
+      persistSettings(next);
       return next;
     });
   };
@@ -273,12 +323,12 @@ export default function App() {
   const [sidebarW, setSidebarW] = useState(() => numPref("zymono.sidebarW", 290));
   useEffect(() => localStorage.setItem("zymono.sidebarW", String(sidebarW)), [sidebarW]);
 
-  const autoConsoleH = () => clamp(Math.round(window.innerHeight * 0.27), 160, 460);
+  const autoConsoleH = () => clamp(Math.round(viewportH() * 0.27), 160, 460);
   const consoleUser = useRef(localStorage.getItem(CONSOLE_H_KEY) !== null);
   const [consoleH, setConsoleH] = useState(() =>
     consoleUser.current ? numPref(CONSOLE_H_KEY, autoConsoleH()) : autoConsoleH()
   );
-  const consoleMax = () => Math.max(240, window.innerHeight - 300);
+  const consoleMax = () => Math.max(240, viewportH() - 300);
   const applyConsoleH = (v: number) => {
     const next = clamp(v, 120, consoleMax());
     consoleUser.current = true;
@@ -435,7 +485,7 @@ export default function App() {
       const origin = axis === "x" ? e.clientX : e.clientY;
       const startVal = getStart();
       const move = (ev: MouseEvent) => {
-        const delta = (axis === "x" ? ev.clientX : ev.clientY) - origin;
+        const delta = toLocal((axis === "x" ? ev.clientX : ev.clientY) - origin);
         apply(startVal + sign * delta);
       };
       const up = () => {
@@ -494,7 +544,7 @@ export default function App() {
     ) => {
       e.preventDefault();
       e.stopPropagation();
-      setCtxMenu({ x: e.clientX, y: e.clientY, proc });
+      setCtxMenu({ x: toLocal(e.clientX), y: toLocal(e.clientY), proc });
     },
     []
   );
@@ -801,7 +851,7 @@ export default function App() {
       JSON.stringify(activeProfile.args) !== JSON.stringify(args));
 
   const onSaveClick = (e: React.MouseEvent) => {
-    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const r = localRect(e.currentTarget as HTMLElement);
     if (activeProfileId) setSaveMenu({ x: r.right, y: r.top - 6 });
     else setSavePop({ x: r.right, y: r.top - 6 });
   };
@@ -901,7 +951,7 @@ export default function App() {
 
   return (
     <>
-    {splash && <Launch onDone={() => { (window as unknown as { __zymonoSplashDone?: boolean }).__zymonoSplashDone = true; setSplash(false); }} />}
+    {splash && <Launch reduced={settings.reduceMotion} onDone={() => { (window as unknown as { __zymonoSplashDone?: boolean }).__zymonoSplashDone = true; setSplash(false); }} />}
     <div className="app">
       <ResizeHandles />
       {toast && (

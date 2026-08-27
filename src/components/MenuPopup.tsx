@@ -1,6 +1,7 @@
 import { useEffect, type MouseEvent, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { createPortal } from "react-dom";
+import { viewportH, viewportW } from "../settings";
 
 export interface PopItem {
   label: string;
@@ -36,8 +37,8 @@ export default function MenuPopup({ x, y, items, onClose }: Props) {
     };
   }, [onClose]);
 
-  const left = Math.max(8, Math.min(x, window.innerWidth - 230));
-  const top = Math.max(8, Math.min(y, window.innerHeight - (items.length * 34 + 20)));
+  const left = Math.max(8, Math.min(x, viewportW() - 230));
+  const top = Math.max(8, Math.min(y, viewportH() - (items.length * 34 + 20)));
 
   const act = (fn: () => void) => (e: MouseEvent) => {
     e.stopPropagation();

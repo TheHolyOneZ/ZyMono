@@ -18,6 +18,7 @@ import type { InjectMethod, MonoProcess, Profile } from "../types";
 import { matchTarget, sortProfiles } from "../profiles";
 import { basename } from "../path";
 import MenuPopup from "./MenuPopup";
+import { toLocal, localRect } from "../settings";
 
 interface Props {
   profiles: Profile[];
@@ -135,7 +136,7 @@ export default function ProfilesList({
                 onClick={() => renaming !== p.id && onLoad(p)}
                 onContextMenu={(e) => {
                   e.preventDefault();
-                  setMenu({ x: e.clientX, y: e.clientY, id: p.id });
+                  setMenu({ x: toLocal(e.clientX), y: toLocal(e.clientY), id: p.id });
                 }}
               >
                 <div className="pc-top">
@@ -206,7 +207,7 @@ export default function ProfilesList({
                     title="More…"
                     onClick={(e) => {
                       e.stopPropagation();
-                      const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                      const r = localRect(e.currentTarget as HTMLElement);
                       setMenu({ x: r.right, y: r.bottom, id: p.id });
                     }}
                   >
