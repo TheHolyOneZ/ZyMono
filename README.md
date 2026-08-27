@@ -19,7 +19,7 @@
 </p>
 
 <p>
-<a href="https://zlogic.eu/zymono/"><img src="https://img.shields.io/badge/download-v0.3.1%20%C2%B7%20Windows%20x64-2f8fff?style=for-the-badge&logo=windows&logoColor=white" alt="Download ZyMono for Windows" /></a>
+<a href="https://zlogic.eu/zymono/"><img src="https://img.shields.io/badge/download-v0.4.0%20%C2%B7%20Windows%20x64-2f8fff?style=for-the-badge&logo=windows&logoColor=white" alt="Download ZyMono for Windows" /></a>
 </p>
 
 <p>
@@ -40,7 +40,8 @@
 
 <div align="center">
 
-<a href="#-whats-new-in-031">What's new</a> ·
+<a href="#-whats-new-in-040">What's new</a> ·
+<a href="CHANGELOG.md">Changelog</a> ·
 <a href="#-what-is-zymono">What is it</a> ·
 <a href="#-feature-overview">Features</a> ·
 <a href="#-how-injection-works">How it works</a> ·
@@ -54,112 +55,16 @@
 
 ---
 
-## 🆕 What's new in 0.3.1
+## 🆕 What's new in 0.4.0
 
-*A fix release for 0.3.0.*
+*The appearance release — settings that finally stay put, plus nine new Appearance controls.*
 
-**🐞 IL2CPP & MelonLoader receiver install fixed**
-0.3.0 shipped only the classic BepInEx receiver inside the installer — the BepInEx-IL2CPP and MelonLoader
-DLLs were built but never bundled. Installing either from a real (non-dev) install failed with
-*"bundled receiver DLL not found — build the … project first"*. All three receivers
-(`ZyMonoReceiver.dll`, `ZyMonoReceiverIL2CPP.dll`, `ZyMonoMelonReceiver.dll`) now ship with the app.
+Appearance settings now live in a real file at `%APPDATA%\ZyMono\settings.json` instead of the WebView's
+local storage, so they survive a restart, a crash or a force-kill. **Settings → Appearance** also gained
+**UI scale**, **density**, **corner style**, **window opacity**, **console font** and **text size**, an
+**accent glow** toggle with a strength slider, and **reduce motion**.
 
-**📝 Wording corrected throughout**
-ZyMono stopped being a Mono-only injector in 0.3.0, but the app metadata, tray tooltip, title bar and
-About panel hadn't caught up. The in-app guide also still claimed *"IL2CPP games aren't injectable
-(no Mono runtime)"* — flatly wrong since 0.3.0. All corrected.
-
----
-
-## 🆕 What's new in 0.3.0
-
-*The IL2CPP release. ZyMono is no longer a Mono-only injector — it now speaks native C++, IL2CPP, BepInEx-IL2CPP, and MelonLoader too.*
-
-<table>
-<tr>
-<td width="50%" valign="top">
-
-**🎯 IL2CPP games — first-class support**
-IL2CPP games are no longer marked "not injectable". ZyMono now knows there are two mod worlds inside every Unity game — **managed C#** and **native C++** — and routes to the right one based on what you actually picked. Select an IL2CPP game, pick a `.dll`, ZyMono inspects it and picks the route for you.
-
-**🧬 Native (C++) mod loading**
-Three brand-new routes for native mods that no managed injector can touch:
-
-- **LoadLibrary** — the classic on-demand path. The game itself calls `LoadLibraryW` on your DLL; Windows' own loader runs `DllMain(DLL_PROCESS_ATTACH)` and you're in.
-- **Manual map** — an in-memory PE loader. The DLL is copied into the game as a memory buffer, sections copied, relocations applied, imports resolved, `DllMain` fired — no file on disk needs to remain readable. The native analog of the direct Mono route.
-- **Proxy preloader** — drops a signed-clean `winhttp.dll` / `version.dll` stub next to the game exe so your mod auto-loads at next launch. The exact mechanism BepInEx and MelonLoader use themselves — now available for your own native mods.
-
-**🧠 DLL-aware routing**
-The picker now inspects every DLL you point it at: managed vs native, x86 / x64 / AnyCPU, and — for managed DLLs — whether it carries `[BepInPlugin]` or `[MelonInfo]`. The route panel reshapes around what you picked. A C++ DLL hides the pipe route entirely. A C# DLL hides the native tabs. A wrong-bitness DLL says so up front.
-
-</td>
-<td width="50%" valign="top">
-
-**🎭 Two new pipe receivers — BepInEx-IL2CPP & MelonLoader**
-The pipe route now covers all three modern Unity mod-loader worlds:
-
-- `ZyMonoReceiver.dll` — BepInEx classic (Mono) — as before
-- `ZyMonoReceiverIL2CPP.dll` — **new** — BepInEx-IL2CPP, `BasePlugin` + `Il2CppInterop`, class-injected dispatcher
-- `ZyMonoMelonReceiver.dll` — **new** — MelonLoader, `MelonMod` + `OnUpdate`-pumped dispatcher
-
-ZyMono detects which loader is live in the game and installs — or **updates in place** — the matching receiver with one click.
-
-**⚡ MelonMod / BepInPlugin auto-registration**
-Drop a MelonMod DLL onto ZyMono and there's **nothing to fill in**. ZyMono spots the `[MelonInfo]` attribute, the entry-point column disappears, and the receiver hands the assembly to `MelonAssembly.LoadMelonAssembly` — MelonLoader runs the full startup pipeline (Register → OnInitializeMelon → OnLateInitializeMelon → OnUpdate hookup) exactly as if the file had been in `Mods/` at launch. The same lane exists for `[BepInPlugin]` via `Chainloader`.
-
-**🔀 Loader detection: BepInEx vs MelonLoader vs none**
-The status pill now reads *"MelonLoader live"* / *"BepInEx live"* / *"no mod loader"* correctly — the old "BepInEx live" false positive on MelonLoader games is gone. Uses loader-specific module signatures plus the `winhttp.dll` (BepInEx) vs `version.dll` (MelonLoader) proxy heuristic.
-
-**🩹 UX cleanup**
-Direct/Pipe/Auto is hidden when a native DLL is picked (pipe doesn't apply). The "no managed methods found" warning is gone in native mode. Install/Update prompt no longer auto-dismisses after 2 s. **Update receiver…** button when the receiver is already live so you can push a fresh build without hunting through folders. The stale "Uses Harmony — if BepInEx is live" hint is now loader-agnostic.
-
-</td>
-</tr>
-</table>
-
----
-
-## 🆕 What's new in 0.2.0
-
-*A release shaped almost entirely by user feedback — every item below came from someone actually modding with it.*
-
-<table>
-<tr>
-<td width="50%" valign="top">
-
-**🔍 Search / filter the target list**
-Type a few letters — `Raft` — and the Targets list narrows instantly. <kbd>Ctrl</kbd>+<kbd>F</kbd> from anywhere jumps into the box; <kbd>Esc</kbd> clears it. No more hunting through thirty processes.
-
-**📋 Paste a whole entry point**
-Copy `RaftMod.Main.Init` from anywhere and paste it into **any** of the three entry-point boxes — ZyMono splits it into Namespace / Class / Method for you. It also cleans up what it's given: `RaftMod::Main::Init`, a trailing `(string[] args)`, or a copied log line all resolve correctly.
-
-**📂 Recent DLLs dropdown**
-A dropdown next to **Choose DLL** remembers the last **5** assemblies you injected. Re-testing the same mod is now one click instead of a file dialog. Entries can be forgotten individually.
-
-**⌨️ Global inject hotkey**
-Bind any combination (<kbd>F11</kbd>, <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>I</kbd>, …) in **Settings → Injection** and fire an injection **while the game has focus** — no Alt-Tab. ZyMono toasts what happened, and tells you if there's nothing configured to inject yet.
-
-</td>
-<td width="50%" valign="top">
-
-**⏏️ Optional unload / eject entry point**
-Give ZyMono a second, optional entry point — `MyMod.Loader.Unload` — and an **Eject** button appears beside **Inject**. It calls that method on the copy of your assembly that is *already live*, so your statics are the ones `Init` set up. Reload a mod without restarting the game. Leave it blank and nothing changes.
-
-**🖱️ Drag-and-drop a DLL**
-Drop a `.dll` anywhere on the window to load it. The overlay names the file before you let go, and politely refuses anything that isn't a .NET assembly.
-
-**🧭 Action bar moved next to the target**
-**Save** and **Inject** now sit in a dedicated action bar directly under the form, alongside a live summary of *what* is about to be injected *where* — your eyes no longer cross the whole monitor between the target and the button that acts on it.
-
-**🖥️ A real widescreen layout**
-Maximize the window and the config panel reflows: one column → **two** at 780 px → **three** at 1500 px. No more 60 % of a widescreen monitor left as empty black space.
-
-**🎨 An Appearance tab that actually sticks**
-**Settings → Appearance** now carries **UI scale**, **density** (cozy / compact), **corner style**, **window opacity** so you can watch the game through ZyMono, **console font and text size**, an **accent glow** toggle with a strength slider, and **reduce motion**. High contrast still raises borders, surfaces and text across the whole app on top of whichever accent you use — and as of 0.4.0 none of it resets when you restart.
-
-</td>
-</tr>
-</table>
+📖 **Full history for every release — see [CHANGELOG.md](CHANGELOG.md).**
 
 ---
 
@@ -431,7 +336,7 @@ Add profiles, auto-inject, entry-point validation, Harmony detection and a moder
 
 ## 📥 Getting started
 
-> 📦 **Download ZyMono for Windows (v0.3.1)** from the official page: **[zlogic.eu/zymono](https://zlogic.eu/zymono/)** — grab the installer (.exe) or MSI right there.
+> 📦 **Download ZyMono for Windows (v0.4.0)** from the official page: **[zlogic.eu/zymono](https://zlogic.eu/zymono/)** — grab the installer (.exe) or MSI right there.
 > Signed and auto-updating — future versions install themselves from inside the app. This GitHub repo is the **source code**; prefer not to run a pre-built binary? **[Build it yourself](#-build-it-yourself)** in a couple of minutes.
 
 1. **Launch your game.** It appears in the **Targets** list on the left, with its runtime and architecture.
